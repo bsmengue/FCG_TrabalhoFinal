@@ -1,12 +1,3 @@
-//     Universidade Federal do Rio Grande do Sul
-//             Instituto de Informática
-//       Departamento de Informática Aplicada
-//
-//    INF01047 Fundamentos de Computação Gráfica
-//               Prof. Eduardo Gastal
-//
-//                   LABORATÓRIO 5
-//
 
 // Arquivos "headers" padrões de C podem ser incluídos em um
 // programa C++, sendo necessário somente adicionar o caractere
@@ -92,16 +83,13 @@ struct ObjModel
         {
             if (shapes[shape].name.empty())
             {
-                fprintf(stderr,
-                        "*********************************************\n"
-                        "Erro: Objeto sem nome dentro do arquivo '%s'.\n"
-                        "Veja https://www.inf.ufrgs.br/~eslgastal/fcg-faq-etc.html#Modelos-3D-no-formato-OBJ .\n"
-                        "*********************************************\n",
-                    filename);
-                throw std::runtime_error("Objeto sem nome.");
+                // Gera um nome automaticamente
+                shapes[shape].name = "obj_" + std::to_string(shape);
             }
+
             printf("- Objeto '%s'\n", shapes[shape].name.c_str());
         }
+
 
         printf("OK.\n");
     }
@@ -111,7 +99,6 @@ glm::vec3 g_CarPosition = glm::vec3(0.0f, -1.2f, 0.0f);
 float g_CarAngle = 0.0f;            // Rotação em Y
 float g_CarSpeed = 4.0f;            // unidades por segundo
 float g_CarTurnSpeed = 2.5f;        // radianos por segundo
-
 
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
@@ -204,7 +191,7 @@ bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mous
 // efetiva da câmera é calculada dentro da função main(), dentro do loop de
 // renderização.
 float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
-float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
+float g_CameraPhi = -0.3f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 3.5f; // Distância da câmera para a origem
 
 // Variáveis que controlam rotação do antebraço
@@ -227,19 +214,21 @@ GLint g_model_uniform;
 GLint g_view_uniform;
 GLint g_projection_uniform;
 GLint g_object_id_uniform;
+GLint g_texture_id_uniform;
 GLint g_bbox_min_uniform;
 GLint g_bbox_max_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
 
-glm::vec4 g_CameraPosition = glm::vec4(0.0f, 2.0f, 3.0f, 1.0f); // posição (w = 1)
+glm::vec4 g_CameraPosition = glm::vec4(0.0f, 2.0f, -3.0f, 1.0f); // posição (w = 1)
 glm::vec4 g_CameraUp       = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // up (w = 0)
 
 bool tecla_UP = false;
 bool tecla_DOWN = false;
 bool tecla_LEFT = false;
 bool tecla_RIGHT = false;
+bool camera_tipo = true; // true ativa camera look-at, false ativa camera livre
 
 bool tecla_W = false;
 bool tecla_S = false;
@@ -280,7 +269,7 @@ int main(int argc, char* argv[])
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "INF01047 - Seu Cartao - Seu Nome", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "PokeKart", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -331,13 +320,14 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/charizard.jpg");
     LoadTextureImage("../../data/sky.jpg");
     LoadTextureImage("../../data/bulbasaur.png");
+    LoadTextureImage("../../data/gravelly_sand_diff_4k.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
     ComputeNormals(&spheremodel);
     BuildTrianglesAndAddToVirtualScene(&spheremodel);
 
-    ObjModel carmodel("../../data/car.obj");
+    ObjModel carmodel("../../data/3VFR6XB597SF7899OFXEG8VTK.obj");
     ComputeNormals(&carmodel);
     BuildTrianglesAndAddToVirtualScene(&carmodel);
 
@@ -462,49 +452,58 @@ if (g_BulbasaurParts.empty())
         time_prev = time_current;
 
         if (tecla_UP){
-            g_CameraPosition += (w*speed);
-        }
-
-        if (tecla_DOWN){
             g_CameraPosition += (-w*speed);
         }
 
-        if (tecla_LEFT){
-            g_CameraPosition += (u*speed);
+        if (tecla_DOWN){
+            g_CameraPosition += (w*speed);
         }
 
-        if (tecla_RIGHT){
+        if (tecla_LEFT){
             g_CameraPosition += (-u*speed);
         }
 
+        if (tecla_RIGHT){
+            g_CameraPosition += (u*speed);
+        }
 
-        glm::vec4 camera_position_c = g_CameraPosition;
-        glm::vec4 camera_up_vector  = g_CameraUp;
-
-        // ---- Movimentação do carro ----
+                // ---- Movimentação do carro ----
     if (tecla_A)
         g_CarAngle += g_CarTurnSpeed * delta_time;
 
     if (tecla_D)
         g_CarAngle -= g_CarTurnSpeed * delta_time;
 
-// Direção para onde o carro aponta
-    glm::vec3 forward = glm::vec3(
-        sin(g_CarAngle),
-        0.0f,
-        cos(g_CarAngle)
-);
+    // Direção para onde o carro aponta
+        glm::vec3 forward = glm::vec3(
+            sin(g_CarAngle),
+            0.0f,
+            cos(g_CarAngle)
+    );
 
-if (tecla_W)
-    g_CarPosition += forward * g_CarSpeed * delta_time;
+    if (tecla_W)
+        g_CarPosition += forward * g_CarSpeed * delta_time;
 
-if (tecla_S)
-    g_CarPosition -= forward * g_CarSpeed * delta_time;
+    if (tecla_S)
+        g_CarPosition -= forward * g_CarSpeed * delta_time;
+
+
+        glm::vec4 camera_position_c = g_CameraPosition;
+        glm::vec4 camera_up_vector  = g_CameraUp;
+        glm::vec4 car_position = glm:: vec4(g_CarPosition, 1.0);
+
 
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+        glm::mat4 view;
+
+        if (camera_tipo){
+            view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+        }
+        else{
+            view = Matrix_Camera_View(camera_position_c, car_position -camera_position_c, camera_up_vector);
+        }
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
@@ -512,7 +511,7 @@ if (tecla_S)
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -10.0f; // Posição do "far plane"
+        float farplane  = -30.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -560,18 +559,15 @@ if (tecla_S)
         glCullFace(GL_BACK);
         glDepthMask(GL_TRUE);
 
-// Charizard
-        if (!g_CharizardName.empty()) {
-    glm::mat4 charizard_model =
-        Matrix_Translate(g_CarPosition.x, g_CarPosition.y + 1.0f, g_CarPosition.z) *
-        Matrix_Rotate_Y(g_CarAngle) *
-        Matrix_Scale(1.0f, 1.0f, 1.0f);
+    // Charizard
+        glm::mat4 charizard_model =
+            Matrix_Translate(g_CarPosition.x, g_CarPosition.y + 1.0f, g_CarPosition.z) *
+            Matrix_Rotate_Y(g_CarAngle + 1.5f) *
+            Matrix_Scale(1.0f, 1.0f, 1.0f);
 
-    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(charizard_model));
-    glUniform1i(g_object_id_uniform, CHARIZARD);
-    DrawVirtualObject(g_CharizardName.c_str());
-}
-
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(charizard_model));
+        glUniform1i(g_object_id_uniform, CHARIZARD);
+        DrawVirtualObject(g_CharizardName.c_str());
 
         if (!g_BulbasaurParts.empty()) {
             model = Matrix_Translate(3.0f, -0.1f, -0.2f)
@@ -603,13 +599,17 @@ if (tecla_S)
         DrawVirtualObject(part_name.c_str());
 }
 
+        for (const auto& part_name : g_CarParts)
+        {
+            DrawVirtualObject(part_name.c_str());
+        }
+
 
 
     // --- Carro 2 (se quiser outra cópia do carro em outro lugar) ---
     if (!g_CarParts.empty()) {
         model = Matrix_Translate(3.0f, -1.2f, 0.0f)
-              * Matrix_Scale(0.02f, 0.02f, 0.02f)
-              * Matrix_Rotate_Y(0.5f);
+              * Matrix_Scale(0.02f, 0.02f, 0.02f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, CAR);
 
@@ -622,9 +622,18 @@ if (tecla_S)
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f)*
-                Matrix_Scale(10.0f, 10.0f, 10.0f);
+                Matrix_Scale(20.0f, 20.0f, 20.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
+        glUniform1i(g_texture_id_uniform, 0);
+        DrawVirtualObject("the_plane");
+
+                // Desenhamos o plano do chão
+        model = Matrix_Translate(0.0f,-1.0f,0.0f)*
+                Matrix_Scale(4.0f, 1.0f, 20.0f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLANE);
+        glUniform1i(g_texture_id_uniform, 1);
         DrawVirtualObject("the_plane");
 
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do
@@ -686,11 +695,9 @@ void LoadTextureImage(const char* filename)
     glGenTextures(1, &texture_id);
     glGenSamplers(1, &sampler_id);
 
-    // Veja slides 95-96 do documento Aula_20_Mapeamento_de_Texturas.pdf
-    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-    // Parâmetros de amostragem da textura.
     glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glSamplerParameteri(sampler_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -784,7 +791,8 @@ void LoadShadersFromFiles()
     g_model_uniform      = glGetUniformLocation(g_GpuProgramID, "model"); // Variável da matriz "model"
     g_view_uniform       = glGetUniformLocation(g_GpuProgramID, "view"); // Variável da matriz "view" em shader_vertex.glsl
     g_projection_uniform = glGetUniformLocation(g_GpuProgramID, "projection"); // Variável da matriz "projection" em shader_vertex.glsl
-    g_object_id_uniform  = glGetUniformLocation(g_GpuProgramID, "object_id"); // Variável "object_id" em shader_fragment.glsl
+    g_object_id_uniform = glGetUniformLocation(g_GpuProgramID, "object_id");
+    g_texture_id_uniform = glGetUniformLocation(g_GpuProgramID, "texture_id");
     g_bbox_min_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_min");
     g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
 
@@ -796,6 +804,10 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage3"), 3);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage4"), 4);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage5"), 5);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
+
+    g_texture_id_uniform = glGetUniformLocation(g_GpuProgramID, "texture_id");
+
 
     glUseProgram(0);
 }
@@ -1475,6 +1487,11 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         fflush(stdout);
     }
 
+    if (key == GLFW_KEY_C && action == GLFW_PRESS)
+    {
+        camera_tipo = !camera_tipo;
+    }
+
     if (key == GLFW_KEY_UP)
     {
         if(action == GLFW_PRESS){
@@ -1518,11 +1535,49 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_RIGHT = false;
         }
     }
+      if (key == GLFW_KEY_W)
+    {
+        if(action == GLFW_PRESS){
+            tecla_W = true;
+        }
 
-    if (key == GLFW_KEY_W) tecla_W = (action != GLFW_RELEASE);
-    if (key == GLFW_KEY_S) tecla_S = (action != GLFW_RELEASE);
-    if (key == GLFW_KEY_A) tecla_A = (action != GLFW_RELEASE);
-    if (key == GLFW_KEY_D) tecla_D = (action != GLFW_RELEASE);
+        else if(action == GLFW_RELEASE){
+            tecla_W = false;
+        }
+    }
+
+    if (key == GLFW_KEY_S)
+    {
+        if(action == GLFW_PRESS){
+            tecla_S = true;
+        }
+
+        else if(action == GLFW_RELEASE){
+            tecla_S = false;
+        }
+    }
+
+    if (key == GLFW_KEY_A)
+    {
+        if(action == GLFW_PRESS){
+            tecla_A = true;
+        }
+
+        else if(action == GLFW_RELEASE){
+            tecla_A = false;
+        }
+    }
+
+    if (key == GLFW_KEY_D)
+    {
+        if(action == GLFW_PRESS){
+            tecla_D = true;
+        }
+
+        else if(action == GLFW_RELEASE){
+            tecla_D = false;
+        }
+    }
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
@@ -1853,3 +1908,4 @@ void PrintObjModelInfo(ObjModel* model)
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
 // vim: set spell spelllang=pt_br :
+
