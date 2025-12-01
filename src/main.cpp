@@ -95,7 +95,7 @@ struct ObjModel
     }
 };
 
-glm::vec3 g_CarPosition = glm::vec3(0.0f, -1.2f, 0.0f);
+glm::vec3 g_CarPosition = glm::vec3(0.0f, -0.5f, 0.0f);
 float g_CarAngle = 0.0f;            // Rotação em Y
 float g_CarSpeed = 4.0f;            // unidades por segundo
 float g_CarTurnSpeed = 2.5f;        // radianos por segundo
@@ -239,6 +239,27 @@ std::string g_CharizardName;
 std::vector<std::string> g_CarParts;
 std::vector<std::string> g_BulbasaurParts;
 
+glm::vec4 GetFollowCameraPosition()
+{
+    float distance = 4.0f;   // distância atrás do carro
+    float height   = 3.0f;   // altura acima do carro
+
+    // direção “para frente” do carro
+    glm::vec3 forward(
+        sin(g_CarAngle),
+        0.0f,
+        cos(g_CarAngle)
+    );
+
+    glm::vec3 camera_pos =
+        g_CarPosition           // posição do carro
+        - forward * distance    // coloca atrás do carro
+        + glm::vec3(0.0f, height, 0.0f);  // eleva a câmera
+
+    return glm::vec4(camera_pos, 1.0f);
+}
+
+
 
 int main(int argc, char* argv[])
 {
@@ -321,6 +342,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/sky.jpg");
     LoadTextureImage("../../data/bulbasaur.png");
     LoadTextureImage("../../data/gravelly_sand_diff_4k.jpg");
+    LoadTextureImage("../../data/taxi_cab.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -493,7 +515,6 @@ if (g_BulbasaurParts.empty())
         glm::vec4 car_position = glm:: vec4(g_CarPosition, 1.0);
 
 
-
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
         glm::mat4 view;
@@ -502,7 +523,16 @@ if (g_BulbasaurParts.empty())
             view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
         }
         else{
-            view = Matrix_Camera_View(camera_position_c, car_position -camera_position_c, camera_up_vector);
+                glm::vec4 cam_pos = GetFollowCameraPosition();
+
+    glm::vec4 look_dir = glm::vec4(
+        g_CarPosition.x - cam_pos.x,
+        g_CarPosition.y - cam_pos.y,
+        g_CarPosition.z - cam_pos.z,
+        0.0f
+    );
+
+    view = Matrix_Camera_View(cam_pos, look_dir, camera_up_vector);
         }
 
         // Agora computamos a matriz de Projeção.
@@ -589,8 +619,8 @@ if (g_BulbasaurParts.empty())
     if (!g_CarParts.empty()) {
     model =
         Matrix_Translate(g_CarPosition.x, g_CarPosition.y, g_CarPosition.z) *
-        Matrix_Rotate_Y(g_CarAngle) *
-        Matrix_Scale(0.02f, 0.02f, 0.02f);
+        Matrix_Rotate_Y(g_CarAngle + 3.0f) *
+        Matrix_Scale(1.2f, 1.2f, 1.2f);
 
     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
     glUniform1i(g_object_id_uniform, CAR);
@@ -805,6 +835,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage4"), 4);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage5"), 5);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage7"), 7);
 
     g_texture_id_uniform = glGetUniformLocation(g_GpuProgramID, "texture_id");
 
@@ -1905,6 +1936,8 @@ void PrintObjModelInfo(ObjModel* model)
     printf("\n");
   }
 }
+
+
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
 // vim: set spell spelllang=pt_br :
