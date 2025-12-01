@@ -107,6 +107,12 @@ struct ObjModel
     }
 };
 
+glm::vec3 g_CarPosition = glm::vec3(0.0f, -1.2f, 0.0f);
+float g_CarAngle = 0.0f;            // Rotação em Y
+float g_CarSpeed = 4.0f;            // unidades por segundo
+float g_CarTurnSpeed = 2.5f;        // radianos por segundo
+
+
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
 void PushMatrix(glm::mat4 M);
@@ -234,6 +240,11 @@ bool tecla_UP = false;
 bool tecla_DOWN = false;
 bool tecla_LEFT = false;
 bool tecla_RIGHT = false;
+
+bool tecla_W = false;
+bool tecla_S = false;
+bool tecla_A = false;
+bool tecla_D = false;
 
 std::string g_CharizardName;
 std::vector<std::string> g_CarParts;
@@ -470,6 +481,27 @@ if (g_BulbasaurParts.empty())
         glm::vec4 camera_position_c = g_CameraPosition;
         glm::vec4 camera_up_vector  = g_CameraUp;
 
+        // ---- Movimentação do carro ----
+    if (tecla_A)
+        g_CarAngle += g_CarTurnSpeed * delta_time;
+
+    if (tecla_D)
+        g_CarAngle -= g_CarTurnSpeed * delta_time;
+
+// Direção para onde o carro aponta
+    glm::vec3 forward = glm::vec3(
+        sin(g_CarAngle),
+        0.0f,
+        cos(g_CarAngle)
+);
+
+if (tecla_W)
+    g_CarPosition += forward * g_CarSpeed * delta_time;
+
+if (tecla_S)
+    g_CarPosition -= forward * g_CarSpeed * delta_time;
+
+
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
@@ -530,13 +562,16 @@ if (g_BulbasaurParts.empty())
 
 // Charizard
         if (!g_CharizardName.empty()) {
-        model = Matrix_Translate((0.0f),0.6f,(-0.2f))
-              * Matrix_Scale(1.0f, 1.0f, 1.0f)
-              * Matrix_Rotate_Y(1.5f);; // ajuste fino se ficar grande/pequeno
-        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, CHARIZARD);
-        DrawVirtualObject(g_CharizardName.c_str());
-        }
+    glm::mat4 charizard_model =
+        Matrix_Translate(g_CarPosition.x, g_CarPosition.y + 1.0f, g_CarPosition.z) *
+        Matrix_Rotate_Y(g_CarAngle) *
+        Matrix_Scale(1.0f, 1.0f, 1.0f);
+
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(charizard_model));
+    glUniform1i(g_object_id_uniform, CHARIZARD);
+    DrawVirtualObject(g_CharizardName.c_str());
+}
+
 
         if (!g_BulbasaurParts.empty()) {
             model = Matrix_Translate(3.0f, -0.1f, -0.2f)
@@ -556,17 +591,18 @@ if (g_BulbasaurParts.empty())
 
     // --- Carro 1 ---
     if (!g_CarParts.empty()) {
-        model = Matrix_Translate(0.0f, -1.2f, 0.0f)
-              * Matrix_Scale(0.02f, 0.02f, 0.02f)
-              * Matrix_Rotate_Y(0.5f);
-        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, CAR);
+    model =
+        Matrix_Translate(g_CarPosition.x, g_CarPosition.y, g_CarPosition.z) *
+        Matrix_Rotate_Y(g_CarAngle) *
+        Matrix_Scale(0.02f, 0.02f, 0.02f);
 
-        for (const auto& part_name : g_CarParts)
-        {
-            DrawVirtualObject(part_name.c_str());
-        }
-    }
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniform1i(g_object_id_uniform, CAR);
+
+    for (const auto& part_name : g_CarParts)
+        DrawVirtualObject(part_name.c_str());
+}
+
 
 
     // --- Carro 2 (se quiser outra cópia do carro em outro lugar) ---
@@ -1439,7 +1475,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         fflush(stdout);
     }
 
-            // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
     if (key == GLFW_KEY_UP)
     {
         if(action == GLFW_PRESS){
@@ -1451,7 +1486,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         }
     }
 
-    // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
     if (key == GLFW_KEY_DOWN)
     {
         if(action == GLFW_PRESS){
@@ -1463,7 +1497,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         }
     }
 
-            // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
     if (key == GLFW_KEY_LEFT)
     {
         if(action == GLFW_PRESS){
@@ -1475,7 +1508,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         }
     }
 
-    // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
     if (key == GLFW_KEY_RIGHT)
     {
         if(action == GLFW_PRESS){
@@ -1486,6 +1518,11 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_RIGHT = false;
         }
     }
+
+    if (key == GLFW_KEY_W) tecla_W = (action != GLFW_RELEASE);
+    if (key == GLFW_KEY_S) tecla_S = (action != GLFW_RELEASE);
+    if (key == GLFW_KEY_A) tecla_A = (action != GLFW_RELEASE);
+    if (key == GLFW_KEY_D) tecla_D = (action != GLFW_RELEASE);
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
