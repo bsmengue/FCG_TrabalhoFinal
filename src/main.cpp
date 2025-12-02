@@ -236,10 +236,14 @@ bool tecla_A = false;
 bool tecla_D = false;
 
 // Pontos de controle da curva Bezier (ajuste como quiser)
-glm::vec3 P0 = glm::vec3(-5.0, 0.0, -5.0);
-glm::vec3 P1 = glm::vec3(-2.0, 0.0,  5.0);
-glm::vec3 P2 = glm::vec3( 2.0, 0.0, -5.0);
-glm::vec3 P3 = glm::vec3( 5.0, 0.0,  5.0);
+glm::vec3 P0 = glm::vec3( 5, 0,  0);
+glm::vec3 P1 = glm::vec3( 0, 0,  5);
+glm::vec3 P2 = glm::vec3(-5, 0,  0);
+glm::vec3 P3 = glm::vec3( 0, 0, -5);
+
+float track_width = 4.0f;
+int track_samples = 256;
+
 
 // Parâmetro da curva
 float t_bezier = 0.0f;
@@ -271,6 +275,7 @@ glm::vec3 BezierTangent(float t)
         (6.0f * u * t - 3.0f * t * t) * P2 +
         3.0f * t * t * P3;
 }
+
 
 
 
@@ -713,19 +718,50 @@ if (g_BulbasaurParts.empty())
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f)*
-                Matrix_Scale(20.0f, 20.0f, 20.0f);
+                Matrix_Scale(50.0f, 1.0f, 50.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         glUniform1i(g_texture_id_uniform, 0);
         DrawVirtualObject("the_plane");
 
-                // Desenhamos o plano do chão
-        model = Matrix_Translate(0.0f,-1.0f,0.0f)*
-                Matrix_Scale(4.0f, 1.0f, 20.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLANE);
-        glUniform1i(g_texture_id_uniform, 1);
-        DrawVirtualObject("the_plane");
+// Lado SUL (frente)
+model =
+    Matrix_Translate(0.0f, -1.0f, -20.0f) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
+// Lado NORTE (atrás)
+model =
+    Matrix_Translate(0.0f, -1.0f, 20.0f) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
+// Lado OESTE (esquerda)
+model =
+    Matrix_Translate(-20.0f, -1.0f, 0.0f) *
+    Matrix_Rotate_Y(3.141592 / 2) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
+// Lado LESTE (direita)
+model =
+    Matrix_Translate(20.0f, -1.0f, 0.0f) *
+    Matrix_Rotate_Y(3.141592 / 2) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
 
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do
         // terceiro cubo.
