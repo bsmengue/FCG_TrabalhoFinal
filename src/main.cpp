@@ -235,6 +235,50 @@ bool tecla_S = false;
 bool tecla_A = false;
 bool tecla_D = false;
 
+// Pontos de controle da curva Bezier (ajuste como quiser)
+glm::vec3 P0 = glm::vec3( 5, 0,  0);
+glm::vec3 P1 = glm::vec3( 0, 0,  5);
+glm::vec3 P2 = glm::vec3(-5, 0,  0);
+glm::vec3 P3 = glm::vec3( 0, 0, -5);
+
+float track_width = 4.0f;
+int track_samples = 256;
+
+
+// Parâmetro da curva
+float t_bezier = 0.0f;
+float bezier_speed = 0.15f; // ajuste a velocidade de movimento
+
+glm::vec3 BezierPos(float t)
+{
+    float u  = 1.0f - t;
+    float u2 = u * u;
+    float u3 = u2 * u;
+    float t2 = t * t;
+    float t3 = t2 * t;
+
+    return
+        u3 * P0 +
+        3.0f * u2 * t * P1 +
+        3.0f * u * t2 * P2 +
+        t3 * P3;
+}
+
+// Derivada — usada para orientar carro e charizard
+glm::vec3 BezierTangent(float t)
+{
+    float u = 1.0f - t;
+
+    return
+        -3.0f * u * u * P0 +
+        (3.0f * u * u - 6.0f * u * t) * P1 +
+        (6.0f * u * t - 3.0f * t * t) * P2 +
+        3.0f * t * t * P3;
+}
+
+
+
+
 std::string g_CharizardName;
 std::vector<std::string> g_CarParts;
 std::vector<std::string> g_BulbasaurParts;
@@ -420,6 +464,8 @@ if (g_BulbasaurParts.empty())
     float speed = 0.2f;
     float time_prev = (float)glfwGetTime();
 
+
+
     glm::vec4 viewdir = glm::vec4(
         cos(g_CameraPhi)*sin(g_CameraTheta),
         sin(g_CameraPhi),
@@ -508,6 +554,18 @@ if (g_BulbasaurParts.empty())
 
     if (tecla_S)
         g_CarPosition -= forward * g_CarSpeed * delta_time;
+
+            // Atualiza o tempo da curva
+    t_bezier += bezier_speed * delta_time;
+    if (t_bezier > 1.0f)
+        t_bezier = 0.0f;   // Loop infinito
+
+        // === Movimento do Carro 2 pela curva de Bezier ===
+    glm::vec3 car2_pos = BezierPos(t_bezier);              // Posição
+    glm::vec3 car2_tan = glm::normalize(BezierTangent(t_bezier)); // Tangente
+
+    float car2_angle = atan2(car2_tan.x, car2_tan.z); // orientação do carro
+
 
 
         glm::vec4 camera_position_c = g_CameraPosition;
@@ -599,21 +657,6 @@ if (g_BulbasaurParts.empty())
         glUniform1i(g_object_id_uniform, CHARIZARD);
         DrawVirtualObject(g_CharizardName.c_str());
 
-        if (!g_BulbasaurParts.empty()) {
-            model = Matrix_Translate(3.0f, -0.1f, -0.2f)
-                  * Matrix_Scale(0.02f, 0.02f, 0.02f);
-            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, BULBASAUR);
-
-            for (const auto& part_name : g_BulbasaurParts)
-            {
-                DrawVirtualObject(part_name.c_str());
-            }
-        }
-
-
-
-        // Desenhamos o modelo do coelho
 
     // --- Carro 1 ---
     if (!g_CarParts.empty()) {
@@ -629,42 +672,96 @@ if (g_BulbasaurParts.empty())
         DrawVirtualObject(part_name.c_str());
 }
 
-        for (const auto& part_name : g_CarParts)
-        {
-            DrawVirtualObject(part_name.c_str());
-        }
 
 
 
     // --- Carro 2 (se quiser outra cópia do carro em outro lugar) ---
+// --- Carro 2 ---
     if (!g_CarParts.empty()) {
-        model = Matrix_Translate(3.0f, -1.2f, 0.0f)
-              * Matrix_Scale(0.02f, 0.02f, 0.02f);
-        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glm::mat4 model_car2 =
+            Matrix_Translate(car2_pos.x, -0.6f + car2_pos.y, car2_pos.z) *
+            Matrix_Rotate_Y(car2_angle + 3.1415f) *      // vira para frente
+            Matrix_Scale(1.2f, 1.2f, 1.2f);
+
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_car2));
         glUniform1i(g_object_id_uniform, CAR);
 
         for (const auto& part_name : g_CarParts)
-        {
             DrawVirtualObject(part_name.c_str());
-        }
     }
+
+            // === Movimento do Bulbasaur pela curva ===
+        float t_bulba = t_bezier - 0.15f;  // fica atrás
+        if (t_bulba < 0.0f) t_bulba += 1.0f;
+
+        glm::vec3 bulba_pos = BezierPos(t_bulba);
+        glm::vec3 bulba_tan = glm::normalize(BezierTangent(t_bulba));
+
+        float bulba_angle = atan2(bulba_tan.x, bulba_tan.z);
+
+                if (!g_BulbasaurParts.empty()) {
+
+            glm::mat4 model_bulba =
+                Matrix_Translate(bulba_pos.x, bulba_pos.y - 0.1f, bulba_pos.z) *
+                Matrix_Rotate_Y(bulba_angle + 3.1415f) *
+                Matrix_Scale(0.02f, 0.02f, 0.02f);
+
+            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_bulba));
+            glUniform1i(g_object_id_uniform, BULBASAUR);
+
+            for (const auto& part_name : g_BulbasaurParts)
+                DrawVirtualObject(part_name.c_str());
+        }
+
+
 
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f)*
-                Matrix_Scale(20.0f, 20.0f, 20.0f);
+                Matrix_Scale(50.0f, 1.0f, 50.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         glUniform1i(g_texture_id_uniform, 0);
         DrawVirtualObject("the_plane");
 
-                // Desenhamos o plano do chão
-        model = Matrix_Translate(0.0f,-1.0f,0.0f)*
-                Matrix_Scale(4.0f, 1.0f, 20.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLANE);
-        glUniform1i(g_texture_id_uniform, 1);
-        DrawVirtualObject("the_plane");
+// Lado SUL (frente)
+model =
+    Matrix_Translate(0.0f, -1.0f, -20.0f) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
+// Lado NORTE (atrás)
+model =
+    Matrix_Translate(0.0f, -1.0f, 20.0f) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
+// Lado OESTE (esquerda)
+model =
+    Matrix_Translate(-20.0f, -1.0f, 0.0f) *
+    Matrix_Rotate_Y(3.141592 / 2) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
+// Lado LESTE (direita)
+model =
+    Matrix_Translate(20.0f, -1.0f, 0.0f) *
+    Matrix_Rotate_Y(3.141592 / 2) *
+    Matrix_Scale(40.0f, 1.0f, 4.0f);
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+glUniform1i(g_object_id_uniform, PLANE);
+glUniform1i(g_texture_id_uniform, 1);
+DrawVirtualObject("the_plane");
+
 
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do
         // terceiro cubo.

@@ -97,7 +97,7 @@
 			<Add directory="include" />
 		</Compiler>
 		<Linker>
-			<Add directory="lib" />
+			<Add directory="C:/Users/bruno/FCG_TrabalhoFinal/lib-mingw-32" />
 		</Linker>
 		<Unit filename="include/GLFW/glfw3.h" />
 		<Unit filename="include/GLFW/glfw3native.h" />
@@ -380,9 +380,6 @@
 		<Unit filename="src/textrendering.cpp" />
 		<Unit filename="src/tiny_obj_loader.cpp" />
 		<Extensions>
-			<code_completion />
-			<envvars />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>
