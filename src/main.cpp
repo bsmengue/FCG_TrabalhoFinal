@@ -96,6 +96,24 @@ struct ObjModel
     }
 };
 
+
+GLuint checkpointVAO;
+int checkpointSegments = 48;
+
+
+struct Checkpoint {
+    glm::vec3 position;
+    bool active = false;
+};
+
+std::vector<Checkpoint> checkpoints;
+
+bool raceFinished = false;
+bool canWin = false;
+std::string winner = "";
+float finishZ = 0.0f;  // coloque onde você quer a linha de chegada
+
+
 glm::vec3 g_CarPosition  = glm::vec3(-20.0f, -0.5f, -2.0f);
 float g_CarAngle = 3.141592f;            // Rotação em Y
 float g_CarSpeed = 500.0f;            // unidades por segundo
@@ -138,7 +156,7 @@ glm::vec3 BezierTangent(glm::vec3 P[4], float t)
 }
 
 float g_tCar2 = 0.0f;
-
+float old_tCar2 = 0.0f;
 float g_Car2_t = 0.0f;
 
 
@@ -181,7 +199,6 @@ void RenderStartScreen(GLFWwindow* window);
 void TextRendering_ShowModelViewProjection(GLFWwindow* window, glm::mat4 projection, glm::mat4 view, glm::mat4 model, glm::vec4 p_model);
 void TextRendering_ShowEulerAngles(GLFWwindow* window);
 void TextRendering_ShowProjection(GLFWwindow* window);
-void TextRendering_ShowFramesPerSecond(GLFWwindow* window);
 
 // Funções callback para comunicação com o sistema operacional e interação do
 // usuário. Veja mais comentários nas definições das mesmas, abaixo.
@@ -280,6 +297,8 @@ bool tecla_A = false;
 bool tecla_D = false;
 
 bool g_ShowStartScreen = true;
+bool car2FinishedLap = false;
+
 
 
 // Pontos de controle da curva Bezier (ajuste como quiser)
@@ -462,6 +481,39 @@ int main(int argc, char* argv[])
     ComputeNormals(&bulbasaurmodel);
     BuildTrianglesAndAddToVirtualScene(&bulbasaurmodel);
 
+    // === Criar geometria de um círculo para checkpoints ===
+std::vector<float> circleVertices;
+
+// centro
+circleVertices.push_back(0.0f);
+circleVertices.push_back(0.0f);
+
+float cpRadius = 1.2f;
+
+for (int i = 0; i <= checkpointSegments; i++)
+{
+    float angle = (2.0f * 3.1415 * i) / checkpointSegments;
+    float x = cpRadius * cos(angle);
+    float y = cpRadius * sin(angle);
+
+    circleVertices.push_back(x);
+    circleVertices.push_back(y);
+}
+
+GLuint checkpointVBO;
+glGenVertexArrays(1, &checkpointVAO);
+glGenBuffers(1, &checkpointVBO);
+
+glBindVertexArray(checkpointVAO);
+glBindBuffer(GL_ARRAY_BUFFER, checkpointVBO);
+glBufferData(GL_ARRAY_BUFFER, circleVertices.size() * sizeof(float), circleVertices.data(), GL_STATIC_DRAW);
+
+glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+glEnableVertexAttribArray(0);
+
+glBindVertexArray(0);
+
+
 // --- Charizard: modelo tem um único objeto ---
 if (!charizardmodel.shapes.empty())
 {
@@ -508,6 +560,25 @@ std::vector<glm::vec3> tree_positions = {
     glm::vec3( 5.0f, -1.0f, 10.0f),
     glm::vec3(-8.0f, -1.0f, 15.0f)
 };
+
+// === CHECKPOINTS DA PISTA ===
+Checkpoint cp1;
+cp1.position = glm::vec3(0.0f, -1.0f, -20.0f);
+cp1.active = false;
+checkpoints.push_back(cp1);
+
+Checkpoint cp2;
+cp2.position = glm::vec3(0.0f, -1.0f, 20.0f);
+cp2.active = false;
+checkpoints.push_back(cp2);
+
+Checkpoint cp3;
+cp3.position = glm::vec3(-20.0f, -1.0f, 0.0f);
+cp3.active = false;
+checkpoints.push_back(cp3);
+
+
+
 
 
     if ( argc > 1 )
@@ -635,6 +706,24 @@ glm::mat4 modelCar1 =
 glm::vec3 carMin, carMax;
 ComputeWorldAABB(carLocalMin, carLocalMax, modelCar1, carMin, carMax);
 
+for (int i = 0; i < checkpoints.size(); i++)
+{
+    if (!checkpoints[i].active)
+    {
+        float dx = g_CarPosition.x - checkpoints[i].position.x;
+        float dz = g_CarPosition.z - checkpoints[i].position.z;
+
+        float dist2 = dx*dx + dz*dz;
+        float activationRadius = 3.0f;
+
+        if (dist2 < activationRadius * activationRadius)
+        {
+            checkpoints[i].active = true;
+        }
+    }
+}
+
+
 // AABB local das árvores
 float treeScale = 0.2f;
 
@@ -703,10 +792,20 @@ else
 // Avança o Carro 2 SOMENTE depois de pressionar ENTER
 if (!g_ShowStartScreen)
 {
+    old_tCar2 = g_tCar2;     // <---- SALVA O VALOR ANTERIOR
+
     g_tCar2 += 0.02f * delta_time;
     if (g_tCar2 > 1.0f)
         g_tCar2 -= 1.0f;
 }
+
+
+// Detecta quando completou 1 volta inteira
+if (!car2FinishedLap && old_tCar2 > 0.9f && g_tCar2 < 0.1f)
+{
+    car2FinishedLap = true;
+}
+
 
 
 
@@ -777,7 +876,7 @@ g_Car2Angle    = car2_angle;
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -50.0f; // Posição do "far plane"
+        float farplane  = -100.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -819,14 +918,13 @@ g_Car2Angle    = car2_angle;
         glDepthMask(GL_FALSE);
         glCullFace(GL_FRONT);
 
-        model = Matrix_Scale(5.0f,5.0f,5.0f);
+        model = Matrix_Scale(50.0f,50.0f,50.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SPHERE);
         DrawVirtualObject("the_sphere");
 
         glCullFace(GL_BACK);
         glDepthMask(GL_TRUE);
-
     // Charizard
         glm::mat4 charizard_model =
             Matrix_Translate(g_CarPosition.x, g_CarPosition.y + 1.0f, g_CarPosition.z) *
@@ -903,12 +1001,69 @@ if (!g_TreeParts.empty())
             Matrix_Scale(0.2f, 0.2f, 0.2f); // Ajuste se necessário
 
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, TREE); // use um ID livre OU crie TREE = 5
+        glUniform1i(g_object_id_uniform, TREE);
 
         for (const auto& part_name : g_TreeParts)
             DrawVirtualObject(part_name.c_str());
     }
 }
+               #define CHECKPOINT 20  // coloque um ID novo
+
+// --- Desenhar checkpoints ---
+// === Desenhar checkpoints ===
+for (auto& cp : checkpoints)
+{
+    glm::mat4 model =
+        Matrix_Translate(cp.position.x, cp.position.y + 0.05f, cp.position.z) *
+        Matrix_Rotate_X(-3.1415 / 2) *  // deita no chão
+        Matrix_Scale(3.0f, 3.0f, 3.0f);
+
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniform1i(g_object_id_uniform, CHECKPOINT);
+    glUniform1i(g_texture_id_uniform, -1); // SEM textura
+
+    glBindVertexArray(checkpointVAO);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, checkpointSegments + 2);
+}
+
+
+#define FINISH_LINE 21
+
+glm::mat4 finishModel =
+    Matrix_Translate(20.0f, -1.0f, 0.0f) *
+    Matrix_Scale(4.0f, 1.0f, 0.3f);
+
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(finishModel));
+glUniform1i(g_texture_id_uniform, -1);
+glUniform1i(g_object_id_uniform, FINISH_LINE);
+DrawVirtualObject("the_plane");
+
+
+
+    canWin = true;
+    for (auto& cp : checkpoints)
+        if (!cp.active)
+            canWin = false;
+
+            // Linha de chegada em finishZ
+if (!raceFinished && canWin && g_CarPosition.z >= finishZ)
+{
+    raceFinished = true;
+    winner = "Carro 1 venceu!";
+}
+
+// Verificar vitória do Carro 2
+// Vitória do Carro 2: completou 1 volta
+if (!raceFinished && car2FinishedLap)
+{
+    raceFinished = true;
+    winner = "Carro 2 venceu!";
+}
+
+
+
+
+
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f)*
@@ -956,17 +1111,17 @@ glUniform1i(g_object_id_uniform, PLANE);
 glUniform1i(g_texture_id_uniform, 1);
 DrawVirtualObject("the_plane");
 
+if (raceFinished)
+{
+    TextRendering_PrintString(
+        window,
+        winner.c_str(),   // texto
+        -0.4f,             // posição X na tela (esquerda/direita)
+        0.1f,              // posição Y na tela (alto/baixo)
+        2.5f               // tamanho do texto
+    );
+}
 
-        // Imprimimos na tela os ângulos de Euler que controlam a rotação do
-        // terceiro cubo.
-        TextRendering_ShowEulerAngles(window);
-
-        // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
-        TextRendering_ShowProjection(window);
-
-        // Imprimimos na tela informação sobre o número de quadros renderizados
-        // por segundo (frames per second).
-        TextRendering_ShowFramesPerSecond(window);
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -1127,6 +1282,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage5"), 5);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage7"), 7);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage8"), 8);
 
     g_texture_id_uniform = glGetUniformLocation(g_GpuProgramID, "texture_id");
 
@@ -2010,41 +2166,6 @@ void TextRendering_ShowProjection(GLFWwindow* window)
         TextRendering_PrintString(window, "Orthographic", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
 }
 
-// Escrevemos na tela o número de quadros renderizados por segundo (frames per
-// second).
-void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
-{
-    if ( !g_ShowInfoText )
-        return;
-
-    // Variáveis estáticas (static) mantém seus valores entre chamadas
-    // subsequentes da função!
-    static float old_seconds = (float)glfwGetTime();
-    static int   ellapsed_frames = 0;
-    static char  buffer[20] = "?? fps";
-    static int   numchars = 7;
-
-    ellapsed_frames += 1;
-
-    // Recuperamos o número de segundos que passou desde a execução do programa
-    float seconds = (float)glfwGetTime();
-
-    // Número de segundos desde o último cálculo do fps
-    float ellapsed_seconds = seconds - old_seconds;
-
-    if ( ellapsed_seconds > 1.0f )
-    {
-        numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
-
-        old_seconds = seconds;
-        ellapsed_frames = 0;
-    }
-
-    float lineheight = TextRendering_LineHeight(window);
-    float charwidth = TextRendering_CharWidth(window);
-
-    TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
-}
 // FONTE CHATGPT
 std::string FindObjectBySubstring(const std::string& token)
 {

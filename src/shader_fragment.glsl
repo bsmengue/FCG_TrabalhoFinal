@@ -98,6 +98,17 @@ else if (object_id == CAR)
         return;
     }
 
+    else if (object_id == 20)  // CHECKPOINT
+{
+    color = vec4(1.0, 1.0, 0.0, 1.0);
+
+}
+else if (object_id == 21) // FINISH LINE
+{
+    color = vec4(0.0, 1.0, 0.0, 1.0);
+}
+
+
 
     float lambert = max(0, dot(n, normalize(vec4(1,1,0,0))));
     vec3 result = Kd0 * (lambert + 0.02);
