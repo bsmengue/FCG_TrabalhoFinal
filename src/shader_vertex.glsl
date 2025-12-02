@@ -30,47 +30,47 @@ out vec3 gouraud_color;
 
 void main()
 {
-    // posição final
     gl_Position = projection * view * model * model_coefficients;
 
-    // interpolação
     position_world = model * model_coefficients;
     position_model = model_coefficients;
 
     normal = inverse(transpose(model)) * normal_coefficients;
     normal.w = 0.0;
 
-    texcoords = texture_coefficients;
+        texcoords = texture_coefficients;
 
-    // --- Mapeamento UV especial para PLANE ---
     if (object_id == PLANE)
     {
         if (texture_id == 0)
         {
-            // chão grande – usa UV normal
             texcoords = texture_coefficients;
         }
         else if (texture_id == 1)
         {
-            // chão menor – UV baseado na posição real
             texcoords = vec2(position_world.x, position_world.z) * 2.0;
         }
     }
+    else if (object_id == 20) // CHECKPOINT (círculo 2D)
+    {
+        // model_coefficients.xy é o disco no plano, com raio ~1.2
+        float r = 1.2;
+        vec2 local = model_coefficients.xy;
 
-    // Direção da luz (mesma usada no fragment shader)
+        // mapeia [-r, r] -> [0,1] para U,V
+        texcoords = local / (2.0 * r) + vec2(0.5, 0.5);
+    }
+
+
+
     vec4 light_dir = normalize(vec4(1,1,0,0));
 
-    // Normal já transformada e normalizada
     vec3 N = normalize((inverse(transpose(model)) * normal_coefficients).xyz);
 
-    // Cálculo difuso simplificado
     float lambert = max(0, dot(N, light_dir.xyz));
 
-    // Termo ambiente
     float ambient = 0.02;
 
-    // Cor base (Kd) – textura será aplicada no fragment shader
-    // Aqui enviamos apenas a intensidade da luz
     gouraud_color = vec3(lambert + ambient);
 
 }

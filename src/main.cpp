@@ -111,27 +111,25 @@ std::vector<Checkpoint> checkpoints;
 bool raceFinished = false;
 bool canWin = false;
 std::string winner = "";
-float finishZ = 0.0f;  // coloque onde você quer a linha de chegada
+float finishZ = 0.0f;  // linha de chegada
 
 
 glm::vec3 g_CarPosition  = glm::vec3(-20.0f, -0.5f, -2.0f);
 float g_CarAngle = 3.141592f;            // Rotação em Y
-float g_CarSpeed = 500.0f;            // unidades por segundo
-float g_CarTurnSpeed = 2.5f;        // radianos por segundo
+float g_CarSpeed = 500.0f;
+float g_CarTurnSpeed = 2.5f;
 
 glm::vec3 g_Car2Position = glm::vec3(-20.0f, 0.5f,  2.0f);
 float g_Car2Angle = 0.0f;
 float g_Car2Speed = 4.0f;
 float g_Car2TurnSpeed = 2.5f;
 
-// =========================================================
-// 4 curvas Bezier que formarão um loop completo
-// =========================================================
+// 4 curvas Bezier que formam a pista
 
 glm::vec3 B1[4] = { {-20, -0.5f,  0}, {-20, -0.5f, -15}, {  0, -0.5f, -20}, { 20, -0.5f, -20} };
 glm::vec3 B2[4] = { { 20, -0.5f, -20}, { 15, -0.5f, -20}, { 20, -0.5f,   0}, { 20, -0.5f,  20} };
 glm::vec3 B3[4] = { { 20, -0.5f,  20}, { 20, -0.5f,  15}, {  0, -0.5f,  20}, {-20, -0.5f,  20} };
-glm::vec3 B4[4] = { {-20, -0.5f,  20}, {-20, -0.5f,  15}, {-20, -0.5f,   0}, {-20, -0.5f,   0} }; // Fecha o loop
+glm::vec3 B4[4] = { {-20, -0.5f,  20}, {-20, -0.5f,  15}, {-20, -0.5f,   0}, {-20, -0.5f,   0} };
 
 glm::vec3 Bezier(glm::vec3 P[4], float t)
 {
@@ -301,7 +299,7 @@ bool car2FinishedLap = false;
 
 
 
-// Pontos de controle da curva Bezier (ajuste como quiser)
+// Pontos de controle da curva Bezier
 glm::vec3 P0 = glm::vec3( 5, 0,  0);
 glm::vec3 P1 = glm::vec3( 0, 0,  5);
 glm::vec3 P2 = glm::vec3(-5, 0,  0);
@@ -311,9 +309,8 @@ float track_width = 4.0f;
 int track_samples = 256;
 
 
-// Parâmetro da curva
 float t_bezier = 0.0f;
-float bezier_speed = 0.15f; // ajuste a velocidade de movimento
+float bezier_speed = 0.15f;
 
 glm::vec3 BezierPos(float t)
 {
@@ -330,7 +327,6 @@ glm::vec3 BezierPos(float t)
         t3 * P3;
 }
 
-// Derivada — usada para orientar carro e charizard
 glm::vec3 BezierTangent(float t)
 {
     float u = 1.0f - t;
@@ -363,7 +359,7 @@ glm::vec4 GetFollowCameraPosition()
     );
 
     glm::vec3 camera_pos =
-        g_CarPosition           // posição do carro
+        g_CarPosition
         - forward * distance    // coloca atrás do carro
         + glm::vec3(0.0f, height, 0.0f);  // eleva a câmera
 
@@ -399,7 +395,7 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
-    // de pixels, e com título "INF01047 ...".
+    // de pixels
     GLFWwindow* window;
     window = glfwCreateWindow(800, 600, "PokeKart", NULL, NULL);
     if (!window)
@@ -455,6 +451,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/gravelly_sand_diff_4k.jpg");
     LoadTextureImage("../../data/taxi_cab.jpg");
     LoadTextureImage("../../data/T_Trees_temp_climate.png");
+    LoadTextureImage("../../data/checkpoint.jpg");
 
     ObjModel treemodel("../../data/Lowpoly_tree_sample.obj");
     ComputeNormals(&treemodel);
@@ -484,7 +481,6 @@ int main(int argc, char* argv[])
     // === Criar geometria de um círculo para checkpoints ===
 std::vector<float> circleVertices;
 
-// centro
 circleVertices.push_back(0.0f);
 circleVertices.push_back(0.0f);
 
@@ -513,8 +509,6 @@ glEnableVertexAttribArray(0);
 
 glBindVertexArray(0);
 
-
-// --- Charizard: modelo tem um único objeto ---
 if (!charizardmodel.shapes.empty())
 {
     g_CharizardName = charizardmodel.shapes[0].name;
@@ -524,7 +518,6 @@ else
     fprintf(stderr, "WARN: charizard.obj nao possui shapes.\n");
 }
 
-// --- Carro: guardar TODAS as partes do carro ---
 g_CarParts.clear();
 for (const auto& shape : carmodel.shapes)
 {
@@ -536,7 +529,6 @@ if (g_CarParts.empty())
     fprintf(stderr, "WARN: car.obj nao possui shapes com nome.\n");
 }
 
-// --- Bulbasaur: guardar TODAS as partes ---
 g_BulbasaurParts.clear();
 for (const auto& shape : bulbasaurmodel.shapes)
 {
@@ -548,10 +540,10 @@ if (g_BulbasaurParts.empty())
     fprintf(stderr, "WARN: bulbasaur.obj nao possui shapes com nome.\n");
 }
 
-// --- Arvore: guardar TODAS as partes
+
 for (const auto& shape : treemodel.shapes)
 {
-    g_TreeParts.push_back(shape.name); // não pergunte se está vazio
+    g_TreeParts.push_back(shape.name);
 }
 
 std::vector<glm::vec3> tree_positions = {
@@ -561,7 +553,6 @@ std::vector<glm::vec3> tree_positions = {
     glm::vec3(-8.0f, -1.0f, 15.0f)
 };
 
-// === CHECKPOINTS DA PISTA ===
 Checkpoint cp1;
 cp1.position = glm::vec3(0.0f, -1.0f, -20.0f);
 cp1.active = false;
@@ -610,8 +601,8 @@ checkpoints.push_back(cp3);
         0.0f);
 
     // Base da câmera: w (frente) e u (lateral)
-    glm::vec4 w = -viewdir / norm(viewdir);                 // frente (w = 0)
-    glm::vec4 u = crossproduct(g_CameraUp, w);              // lateral (w = 0)
+    glm::vec4 w = -viewdir / norm(viewdir);
+    glm::vec4 u = crossproduct(g_CameraUp, w);
     u = u / norm(u);
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
@@ -643,7 +634,6 @@ while (!glfwWindowShouldClose(window))
         float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-        // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
         glm::vec4 camera_view_vector = glm::vec4(
             cos(g_CameraPhi)*sin(g_CameraTheta),
             sin(g_CameraPhi),
@@ -748,9 +738,7 @@ for (const glm::vec3& treePos : tree_positions)
     }
 }
 
-//------------------------------------------
-// --- Colisão Carro 1 x Carro 2 ---
-//------------------------------------------
+
 
 glm::vec3 localMin = g_VirtualScene[g_CarParts[0]].bbox_min;
 glm::vec3 localMax = g_VirtualScene[g_CarParts[0]].bbox_max;
@@ -776,7 +764,7 @@ if (AABBvsAABB(car1Min, car1Max, car2Min, car2Max))
 }
 else
 {
-    g_CarSpeed = 4.0f;  // velocidade normal
+    g_CarSpeed = 4.0f;
 }
 
 
@@ -786,13 +774,13 @@ else
             // Atualiza o tempo da curva
     t_bezier += bezier_speed * delta_time;
     if (t_bezier > 1.0f)
-        t_bezier = 0.0f;   // Loop infinito
+        t_bezier = 0.0f;
 
 
 // Avança o Carro 2 SOMENTE depois de pressionar ENTER
 if (!g_ShowStartScreen)
 {
-    old_tCar2 = g_tCar2;     // <---- SALVA O VALOR ANTERIOR
+    old_tCar2 = g_tCar2;
 
     g_tCar2 += 0.02f * delta_time;
     if (g_tCar2 > 1.0f)
@@ -807,11 +795,6 @@ if (!car2FinishedLap && old_tCar2 > 0.9f && g_tCar2 < 0.1f)
 }
 
 
-
-
-// ======================================================
-// Movimento do Carro 2 pelas 4 curvas Bézier conectadas
-// ======================================================
 glm::vec3 car2_pos;
 glm::vec3 car2_tan;
 
@@ -851,7 +834,7 @@ g_Car2Angle    = car2_angle;
 
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
-        // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
+        // definir o sistema de coordenadas da câmera.
         glm::mat4 view;
 
         if (camera_tipo){
@@ -874,7 +857,7 @@ g_Car2Angle    = car2_angle;
         glm::mat4 projection;
 
         // Note que, no sistema de coordenadas da câmera, os planos near e far
-        // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
+        // estão no sentido negativo!
         float nearplane = -0.1f;  // Posição do "near plane"
         float farplane  = -100.0f; // Posição do "far plane"
 
@@ -889,7 +872,7 @@ g_Car2Angle    = car2_angle;
         {
             // Projeção Ortográfica.
             // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
-            // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
+            // PARA PROJEÇÃO ORTOGRÁFICA
             // Para simular um "zoom" ortográfico, computamos o valor de "t"
             // utilizando a variável g_CameraDistance.
             float t = 1.5f*g_CameraDistance/2.5f;
@@ -951,9 +934,6 @@ g_Car2Angle    = car2_angle;
 }
 
 
-
-    // --- Carro 2 (se quiser outra cópia do carro em outro lugar) ---
-// --- Carro 2 ---
 // --- Carro 2 ---
 if (!g_CarParts.empty()) {
     glm::mat4 model_car2 =
@@ -969,13 +949,12 @@ if (!g_CarParts.empty()) {
 }
 
 
-// === Bulbasaur preso em cima do Carro 2 ===
+// Bulbasaur preso em cima do Carro 2
 if (!g_BulbasaurParts.empty())
 {
-    // Posição fixa acima do carro 2 (ajuste a altura como quiser)
+    // Posição fixa acima do carro 2
     glm::vec3 bulba_pos = car2_pos + glm::vec3(0.0f, -0.3f, 0.0f);
 
-    // Escala muito menor: o modelo é gigante naturalmente
     float bulba_scale = 0.03f;
 
     glm::mat4 bulba_model =
@@ -990,15 +969,13 @@ if (!g_BulbasaurParts.empty())
         DrawVirtualObject(part_name.c_str());
 }
 
-
-        // --- Árvores ao longo da pista ---
 if (!g_TreeParts.empty())
 {
     for (const glm::vec3& pos : tree_positions)
     {
         glm::mat4 model =
             Matrix_Translate(pos.x, pos.y, pos.z - 0.5f) *
-            Matrix_Scale(0.2f, 0.2f, 0.2f); // Ajuste se necessário
+            Matrix_Scale(0.2f, 0.2f, 0.2f);
 
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, TREE);
@@ -1007,10 +984,8 @@ if (!g_TreeParts.empty())
             DrawVirtualObject(part_name.c_str());
     }
 }
-               #define CHECKPOINT 20  // coloque um ID novo
+#define CHECKPOINT 20
 
-// --- Desenhar checkpoints ---
-// === Desenhar checkpoints ===
 for (auto& cp : checkpoints)
 {
     glm::mat4 model =
@@ -1030,7 +1005,7 @@ for (auto& cp : checkpoints)
 #define FINISH_LINE 21
 
 glm::mat4 finishModel =
-    Matrix_Translate(20.0f, -1.0f, 0.0f) *
+    Matrix_Translate(20.0f, -0.8f, 0.0f) *
     Matrix_Scale(4.0f, 1.0f, 0.3f);
 
 glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(finishModel));
@@ -1045,25 +1020,18 @@ DrawVirtualObject("the_plane");
         if (!cp.active)
             canWin = false;
 
-            // Linha de chegada em finishZ
 if (!raceFinished && canWin && g_CarPosition.z >= finishZ)
 {
     raceFinished = true;
     winner = "Carro 1 venceu!";
 }
 
-// Verificar vitória do Carro 2
 // Vitória do Carro 2: completou 1 volta
 if (!raceFinished && car2FinishedLap)
 {
     raceFinished = true;
     winner = "Carro 2 venceu!";
 }
-
-
-
-
-
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f)*
@@ -1073,52 +1041,52 @@ if (!raceFinished && car2FinishedLap)
         glUniform1i(g_texture_id_uniform, 0);
         DrawVirtualObject("the_plane");
 
-// Lado SUL (frente)
-model =
-    Matrix_Translate(0.0f, -1.0f, -20.0f) *
-    Matrix_Scale(40.0f, 1.0f, 4.0f);
-glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-glUniform1i(g_object_id_uniform, PLANE);
-glUniform1i(g_texture_id_uniform, 1);
-DrawVirtualObject("the_plane");
+        // Lado SUL (frente)
+        model =
+            Matrix_Translate(0.0f, -1.0f, -20.0f) *
+            Matrix_Scale(40.0f, 1.0f, 4.0f);
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLANE);
+        glUniform1i(g_texture_id_uniform, 1);
+        DrawVirtualObject("the_plane");
 
-// Lado NORTE (atrás)
-model =
-    Matrix_Translate(0.0f, -1.0f, 20.0f) *
-    Matrix_Scale(40.0f, 1.0f, 4.0f);
-glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-glUniform1i(g_object_id_uniform, PLANE);
-glUniform1i(g_texture_id_uniform, 1);
-DrawVirtualObject("the_plane");
+        // Lado NORTE (atrás)
+        model =
+            Matrix_Translate(0.0f, -1.0f, 20.0f) *
+            Matrix_Scale(40.0f, 1.0f, 4.0f);
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLANE);
+        glUniform1i(g_texture_id_uniform, 1);
+        DrawVirtualObject("the_plane");
 
-// Lado OESTE (esquerda)
-model =
-    Matrix_Translate(-20.0f, -1.0f, 0.0f) *
-    Matrix_Rotate_Y(3.141592 / 2) *
-    Matrix_Scale(40.0f, 1.0f, 4.0f);
-glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-glUniform1i(g_object_id_uniform, PLANE);
-glUniform1i(g_texture_id_uniform, 1);
-DrawVirtualObject("the_plane");
+        // Lado OESTE (esquerda)
+        model =
+            Matrix_Translate(-20.0f, -1.0f, 0.0f) *
+            Matrix_Rotate_Y(3.141592 / 2) *
+            Matrix_Scale(40.0f, 1.0f, 4.0f);
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLANE);
+        glUniform1i(g_texture_id_uniform, 1);
+        DrawVirtualObject("the_plane");
 
-// Lado LESTE (direita)
-model =
-    Matrix_Translate(20.0f, -1.0f, 0.0f) *
-    Matrix_Rotate_Y(3.141592 / 2) *
-    Matrix_Scale(40.0f, 1.0f, 4.0f);
-glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-glUniform1i(g_object_id_uniform, PLANE);
-glUniform1i(g_texture_id_uniform, 1);
-DrawVirtualObject("the_plane");
+        // Lado LESTE (direita)
+        model =
+            Matrix_Translate(20.0f, -1.0f, 0.0f) *
+            Matrix_Rotate_Y(3.141592 / 2) *
+            Matrix_Scale(40.0f, 1.0f, 4.0f);
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLANE);
+        glUniform1i(g_texture_id_uniform, 1);
+        DrawVirtualObject("the_plane");
 
 if (raceFinished)
 {
     TextRendering_PrintString(
         window,
-        winner.c_str(),   // texto
-        -0.4f,             // posição X na tela (esquerda/direita)
-        0.1f,              // posição Y na tela (alto/baixo)
-        2.5f               // tamanho do texto
+        winner.c_str(),
+        -0.4f,
+        0.1f,
+        2.5f
     );
 }
 
@@ -1233,24 +1201,7 @@ void DrawVirtualObject(const char* object_name)
 //
 void LoadShadersFromFiles()
 {
-    // Note que o caminho para os arquivos "shader_vertex.glsl" e
-    // "shader_fragment.glsl" estão fixados, sendo que assumimos a existência
-    // da seguinte estrutura no sistema de arquivos:
-    //
-    //    + FCG_Lab_01/
-    //    |
-    //    +--+ bin/
-    //    |  |
-    //    |  +--+ Release/  (ou Debug/ ou Linux/)
-    //    |     |
-    //    |     o-- main.exe
-    //    |
-    //    +--+ src/
-    //       |
-    //       o-- shader_vertex.glsl
-    //       |
-    //       o-- shader_fragment.glsl
-    //
+
     GLuint vertex_shader_id = LoadShader_Vertex("../../src/shader_vertex.glsl");
     GLuint fragment_shader_id = LoadShader_Fragment("../../src/shader_fragment.glsl");
 
@@ -1283,6 +1234,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage7"), 7);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage8"), 8);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage9"), 9);
 
     g_texture_id_uniform = glGetUniformLocation(g_GpuProgramID, "texture_id");
 
@@ -1965,11 +1917,13 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         fflush(stdout);
     }
 
+    // Se o usuário apertar a tecla C, troca de camera
     if (key == GLFW_KEY_C && action == GLFW_PRESS)
     {
         camera_tipo = !camera_tipo;
     }
 
+    // movimentação da camera livre
     if (key == GLFW_KEY_UP)
     {
         if(action == GLFW_PRESS){
@@ -2013,6 +1967,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_RIGHT = false;
         }
     }
+
+    // movimentação do carro
       if (key == GLFW_KEY_W)
     {
         if(action == GLFW_PRESS){
@@ -2057,6 +2013,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         }
     }
 
+    // A tela de início até que o usuário pressione enter
     if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
 {
     if (g_ShowStartScreen)
@@ -2192,7 +2149,6 @@ std::string FindObjectBySubstring(const std::string& token)
 
 // Função para debugging: imprime no terminal todas informações de um modelo
 // geométrico carregado de um arquivo ".obj".
-// Veja: https://github.com/syoyo/tinyobjloader/blob/22883def8db9ef1f3ffb9b404318e7dd25fdbb51/loader_example.cc#L98
 void PrintObjModelInfo(ObjModel* model)
 {
   const tinyobj::attrib_t                & attrib    = model->attrib;
@@ -2359,6 +2315,8 @@ void PrintObjModelInfo(ObjModel* model)
   }
 }
 
+
+// FONTE CHATGPT
 void RenderStartScreen(GLFWwindow* window)
 {
     glDisable(GL_DEPTH_TEST);
