@@ -96,6 +96,23 @@ struct ObjModel
     }
 };
 
+GLuint checkpointVAO;
+int checkpointSegments = 48;
+
+
+struct Checkpoint {
+    glm::vec3 position;
+    bool active = false;
+};
+
+std::vector<Checkpoint> checkpoints;
+
+bool raceFinished = false;
+bool canWin = false;
+std::string winner = "";
+float finishZ = 0.0f;  // coloque onde você quer a linha de chegada
+
+
 glm::vec3 g_CarPosition = glm::vec3(0.0f, -0.5f, 0.0f);
 float g_CarAngle = 0.0f;            // Rotação em Y
 float g_CarSpeed = 4.0f;            // unidades por segundo
@@ -144,7 +161,6 @@ void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M,
 void TextRendering_ShowModelViewProjection(GLFWwindow* window, glm::mat4 projection, glm::mat4 view, glm::mat4 model, glm::vec4 p_model);
 void TextRendering_ShowEulerAngles(GLFWwindow* window);
 void TextRendering_ShowProjection(GLFWwindow* window);
-void TextRendering_ShowFramesPerSecond(GLFWwindow* window);
 
 // Funções callback para comunicação com o sistema operacional e interação do
 // usuário. Veja mais comentários nas definições das mesmas, abaixo.
@@ -423,6 +439,39 @@ int main(int argc, char* argv[])
     ComputeNormals(&bulbasaurmodel);
     BuildTrianglesAndAddToVirtualScene(&bulbasaurmodel);
 
+    // === Criar geometria de um círculo para checkpoints ===
+std::vector<float> circleVertices;
+
+// centro
+circleVertices.push_back(0.0f);
+circleVertices.push_back(0.0f);
+
+float cpRadius = 1.2f;
+
+for (int i = 0; i <= checkpointSegments; i++)
+{
+    float angle = (2.0f * 3.1415 * i) / checkpointSegments;
+    float x = cpRadius * cos(angle);
+    float y = cpRadius * sin(angle);
+
+    circleVertices.push_back(x);
+    circleVertices.push_back(y);
+}
+
+GLuint checkpointVBO;
+glGenVertexArrays(1, &checkpointVAO);
+glGenBuffers(1, &checkpointVBO);
+
+glBindVertexArray(checkpointVAO);
+glBindBuffer(GL_ARRAY_BUFFER, checkpointVBO);
+glBufferData(GL_ARRAY_BUFFER, circleVertices.size() * sizeof(float), circleVertices.data(), GL_STATIC_DRAW);
+
+glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+glEnableVertexAttribArray(0);
+
+glBindVertexArray(0);
+
+
 // --- Charizard: modelo tem um único objeto ---
 if (!charizardmodel.shapes.empty())
 {
@@ -469,6 +518,25 @@ std::vector<glm::vec3> tree_positions = {
     glm::vec3( 5.0f, -1.0f, 10.0f),
     glm::vec3(-8.0f, -1.0f, 15.0f)
 };
+
+// === CHECKPOINTS DA PISTA ===
+Checkpoint cp1;
+cp1.position = glm::vec3(0.0f, -1.0f, -20.0f);
+cp1.active = false;
+checkpoints.push_back(cp1);
+
+Checkpoint cp2;
+cp2.position = glm::vec3(0.0f, -1.0f, 20.0f);
+cp2.active = false;
+checkpoints.push_back(cp2);
+
+Checkpoint cp3;
+cp3.position = glm::vec3(-20.0f, -1.0f, 0.0f);
+cp3.active = false;
+checkpoints.push_back(cp3);
+
+
+
 
 
     if ( argc > 1 )
@@ -597,6 +665,24 @@ glm::mat4 modelCar1 =
 
 glm::vec3 carMin, carMax;
 ComputeWorldAABB(carLocalMin, carLocalMax, modelCar1, carMin, carMax);
+
+for (int i = 0; i < checkpoints.size(); i++)
+{
+    if (!checkpoints[i].active)
+    {
+        float dx = g_CarPosition.x - checkpoints[i].position.x;
+        float dz = g_CarPosition.z - checkpoints[i].position.z;
+
+        float dist2 = dx*dx + dz*dz;
+        float activationRadius = 3.0f;
+
+        if (dist2 < activationRadius * activationRadius)
+        {
+            checkpoints[i].active = true;
+        }
+    }
+}
+
 
 // AABB local das árvores
 float treeScale = 0.2f;
@@ -750,7 +836,6 @@ else
 
         glCullFace(GL_BACK);
         glDepthMask(GL_TRUE);
-
     // Charizard
         glm::mat4 charizard_model =
             Matrix_Translate(g_CarPosition.x, g_CarPosition.y + 1.0f, g_CarPosition.z) *
@@ -827,12 +912,59 @@ if (!g_TreeParts.empty())
             Matrix_Scale(0.2f, 0.2f, 0.2f); // Ajuste se necessário
 
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, TREE); // use um ID livre OU crie TREE = 5
+        glUniform1i(g_object_id_uniform, TREE);
 
         for (const auto& part_name : g_TreeParts)
             DrawVirtualObject(part_name.c_str());
     }
 }
+               #define CHECKPOINT 20  // coloque um ID novo
+
+// --- Desenhar checkpoints ---
+// === Desenhar checkpoints ===
+for (auto& cp : checkpoints)
+{
+    glm::mat4 model =
+        Matrix_Translate(cp.position.x, cp.position.y + 0.05f, cp.position.z) *
+        Matrix_Rotate_X(-3.1415 / 2) *  // deita no chão
+        Matrix_Scale(3.0f, 3.0f, 3.0f);
+
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniform1i(g_object_id_uniform, CHECKPOINT);
+    glUniform1i(g_texture_id_uniform, -1); // SEM textura
+
+    glBindVertexArray(checkpointVAO);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, checkpointSegments + 2);
+}
+
+
+#define FINISH_LINE 21
+
+glm::mat4 finishModel =
+    Matrix_Translate(20.0f, -1.0f, 0.0f) *
+    Matrix_Scale(4.0f, 1.0f, 0.3f);
+
+glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(finishModel));
+glUniform1i(g_texture_id_uniform, -1);
+glUniform1i(g_object_id_uniform, FINISH_LINE);
+DrawVirtualObject("the_plane");
+
+
+
+    canWin = true;
+    for (auto& cp : checkpoints)
+        if (!cp.active)
+            canWin = false;
+
+            // Linha de chegada em finishZ
+if (!raceFinished && canWin && g_CarPosition.z >= finishZ)
+{
+    raceFinished = true;
+    winner = "Carro 1 venceu!";
+}
+
+
+
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f)*
@@ -880,17 +1012,17 @@ glUniform1i(g_object_id_uniform, PLANE);
 glUniform1i(g_texture_id_uniform, 1);
 DrawVirtualObject("the_plane");
 
+if (raceFinished)
+{
+    TextRendering_PrintString(
+        window,
+        winner.c_str(),   // texto
+        -0.4f,             // posição X na tela (esquerda/direita)
+        0.1f,              // posição Y na tela (alto/baixo)
+        2.5f               // tamanho do texto
+    );
+}
 
-        // Imprimimos na tela os ângulos de Euler que controlam a rotação do
-        // terceiro cubo.
-        TextRendering_ShowEulerAngles(window);
-
-        // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
-        TextRendering_ShowProjection(window);
-
-        // Imprimimos na tela informação sobre o número de quadros renderizados
-        // por segundo (frames per second).
-        TextRendering_ShowFramesPerSecond(window);
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -1051,6 +1183,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage5"), 5);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage7"), 7);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage8"), 8);
 
     g_texture_id_uniform = glGetUniformLocation(g_GpuProgramID, "texture_id");
 
@@ -1924,41 +2057,6 @@ void TextRendering_ShowProjection(GLFWwindow* window)
         TextRendering_PrintString(window, "Orthographic", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
 }
 
-// Escrevemos na tela o número de quadros renderizados por segundo (frames per
-// second).
-void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
-{
-    if ( !g_ShowInfoText )
-        return;
-
-    // Variáveis estáticas (static) mantém seus valores entre chamadas
-    // subsequentes da função!
-    static float old_seconds = (float)glfwGetTime();
-    static int   ellapsed_frames = 0;
-    static char  buffer[20] = "?? fps";
-    static int   numchars = 7;
-
-    ellapsed_frames += 1;
-
-    // Recuperamos o número de segundos que passou desde a execução do programa
-    float seconds = (float)glfwGetTime();
-
-    // Número de segundos desde o último cálculo do fps
-    float ellapsed_seconds = seconds - old_seconds;
-
-    if ( ellapsed_seconds > 1.0f )
-    {
-        numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
-
-        old_seconds = seconds;
-        ellapsed_frames = 0;
-    }
-
-    float lineheight = TextRendering_LineHeight(window);
-    float charwidth = TextRendering_CharWidth(window);
-
-    TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
-}
 // FONTE CHATGPT
 std::string FindObjectBySubstring(const std::string& token)
 {
@@ -1982,177 +2080,6 @@ std::string FindObjectBySubstring(const std::string& token)
     return std::string(); // vazio = não achou
 }
 // TERMINA AQUI
-
-// Função para debugging: imprime no terminal todas informações de um modelo
-// geométrico carregado de um arquivo ".obj".
-// Veja: https://github.com/syoyo/tinyobjloader/blob/22883def8db9ef1f3ffb9b404318e7dd25fdbb51/loader_example.cc#L98
-void PrintObjModelInfo(ObjModel* model)
-{
-  const tinyobj::attrib_t                & attrib    = model->attrib;
-  const std::vector<tinyobj::shape_t>    & shapes    = model->shapes;
-  const std::vector<tinyobj::material_t> & materials = model->materials;
-
-  printf("# of vertices  : %d\n", (int)(attrib.vertices.size() / 3));
-  printf("# of normals   : %d\n", (int)(attrib.normals.size() / 3));
-  printf("# of texcoords : %d\n", (int)(attrib.texcoords.size() / 2));
-  printf("# of shapes    : %d\n", (int)shapes.size());
-  printf("# of materials : %d\n", (int)materials.size());
-
-  for (size_t v = 0; v < attrib.vertices.size() / 3; v++) {
-    printf("  v[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
-           static_cast<const double>(attrib.vertices[3 * v + 0]),
-           static_cast<const double>(attrib.vertices[3 * v + 1]),
-           static_cast<const double>(attrib.vertices[3 * v + 2]));
-  }
-
-  for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
-    printf("  n[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
-           static_cast<const double>(attrib.normals[3 * v + 0]),
-           static_cast<const double>(attrib.normals[3 * v + 1]),
-           static_cast<const double>(attrib.normals[3 * v + 2]));
-  }
-
-  for (size_t v = 0; v < attrib.texcoords.size() / 2; v++) {
-    printf("  uv[%ld] = (%f, %f)\n", static_cast<long>(v),
-           static_cast<const double>(attrib.texcoords[2 * v + 0]),
-           static_cast<const double>(attrib.texcoords[2 * v + 1]));
-  }
-
-  // For each shape
-  for (size_t i = 0; i < shapes.size(); i++) {
-    printf("shape[%ld].name = %s\n", static_cast<long>(i),
-           shapes[i].name.c_str());
-    printf("Size of shape[%ld].indices: %lu\n", static_cast<long>(i),
-           static_cast<unsigned long>(shapes[i].mesh.indices.size()));
-
-    size_t index_offset = 0;
-
-    assert(shapes[i].mesh.num_face_vertices.size() ==
-           shapes[i].mesh.material_ids.size());
-
-    printf("shape[%ld].num_faces: %lu\n", static_cast<long>(i),
-           static_cast<unsigned long>(shapes[i].mesh.num_face_vertices.size()));
-
-    // For each face
-    for (size_t f = 0; f < shapes[i].mesh.num_face_vertices.size(); f++) {
-      size_t fnum = shapes[i].mesh.num_face_vertices[f];
-
-      printf("  face[%ld].fnum = %ld\n", static_cast<long>(f),
-             static_cast<unsigned long>(fnum));
-
-      // For each vertex in the face
-      for (size_t v = 0; v < fnum; v++) {
-        tinyobj::index_t idx = shapes[i].mesh.indices[index_offset + v];
-        printf("    face[%ld].v[%ld].idx = %d/%d/%d\n", static_cast<long>(f),
-               static_cast<long>(v), idx.vertex_index, idx.normal_index,
-               idx.texcoord_index);
-      }
-
-      printf("  face[%ld].material_id = %d\n", static_cast<long>(f),
-             shapes[i].mesh.material_ids[f]);
-
-      index_offset += fnum;
-    }
-
-    printf("shape[%ld].num_tags: %lu\n", static_cast<long>(i),
-           static_cast<unsigned long>(shapes[i].mesh.tags.size()));
-    for (size_t t = 0; t < shapes[i].mesh.tags.size(); t++) {
-      printf("  tag[%ld] = %s ", static_cast<long>(t),
-             shapes[i].mesh.tags[t].name.c_str());
-      printf(" ints: [");
-      for (size_t j = 0; j < shapes[i].mesh.tags[t].intValues.size(); ++j) {
-        printf("%ld", static_cast<long>(shapes[i].mesh.tags[t].intValues[j]));
-        if (j < (shapes[i].mesh.tags[t].intValues.size() - 1)) {
-          printf(", ");
-        }
-      }
-      printf("]");
-
-      printf(" floats: [");
-      for (size_t j = 0; j < shapes[i].mesh.tags[t].floatValues.size(); ++j) {
-        printf("%f", static_cast<const double>(
-                         shapes[i].mesh.tags[t].floatValues[j]));
-        if (j < (shapes[i].mesh.tags[t].floatValues.size() - 1)) {
-          printf(", ");
-        }
-      }
-      printf("]");
-
-      printf(" strings: [");
-      for (size_t j = 0; j < shapes[i].mesh.tags[t].stringValues.size(); ++j) {
-        printf("%s", shapes[i].mesh.tags[t].stringValues[j].c_str());
-        if (j < (shapes[i].mesh.tags[t].stringValues.size() - 1)) {
-          printf(", ");
-        }
-      }
-      printf("]");
-      printf("\n");
-    }
-  }
-
-  for (size_t i = 0; i < materials.size(); i++) {
-    printf("material[%ld].name = %s\n", static_cast<long>(i),
-           materials[i].name.c_str());
-    printf("  material.Ka = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].ambient[0]),
-           static_cast<const double>(materials[i].ambient[1]),
-           static_cast<const double>(materials[i].ambient[2]));
-    printf("  material.Kd = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].diffuse[0]),
-           static_cast<const double>(materials[i].diffuse[1]),
-           static_cast<const double>(materials[i].diffuse[2]));
-    printf("  material.Ks = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].specular[0]),
-           static_cast<const double>(materials[i].specular[1]),
-           static_cast<const double>(materials[i].specular[2]));
-    printf("  material.Tr = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].transmittance[0]),
-           static_cast<const double>(materials[i].transmittance[1]),
-           static_cast<const double>(materials[i].transmittance[2]));
-    printf("  material.Ke = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].emission[0]),
-           static_cast<const double>(materials[i].emission[1]),
-           static_cast<const double>(materials[i].emission[2]));
-    printf("  material.Ns = %f\n",
-           static_cast<const double>(materials[i].shininess));
-    printf("  material.Ni = %f\n", static_cast<const double>(materials[i].ior));
-    printf("  material.dissolve = %f\n",
-           static_cast<const double>(materials[i].dissolve));
-    printf("  material.illum = %d\n", materials[i].illum);
-    printf("  material.map_Ka = %s\n", materials[i].ambient_texname.c_str());
-    printf("  material.map_Kd = %s\n", materials[i].diffuse_texname.c_str());
-    printf("  material.map_Ks = %s\n", materials[i].specular_texname.c_str());
-    printf("  material.map_Ns = %s\n",
-           materials[i].specular_highlight_texname.c_str());
-    printf("  material.map_bump = %s\n", materials[i].bump_texname.c_str());
-    printf("  material.map_d = %s\n", materials[i].alpha_texname.c_str());
-    printf("  material.disp = %s\n", materials[i].displacement_texname.c_str());
-    printf("  <<PBR>>\n");
-    printf("  material.Pr     = %f\n", materials[i].roughness);
-    printf("  material.Pm     = %f\n", materials[i].metallic);
-    printf("  material.Ps     = %f\n", materials[i].sheen);
-    printf("  material.Pc     = %f\n", materials[i].clearcoat_thickness);
-    printf("  material.Pcr    = %f\n", materials[i].clearcoat_thickness);
-    printf("  material.aniso  = %f\n", materials[i].anisotropy);
-    printf("  material.anisor = %f\n", materials[i].anisotropy_rotation);
-    printf("  material.map_Ke = %s\n", materials[i].emissive_texname.c_str());
-    printf("  material.map_Pr = %s\n", materials[i].roughness_texname.c_str());
-    printf("  material.map_Pm = %s\n", materials[i].metallic_texname.c_str());
-    printf("  material.map_Ps = %s\n", materials[i].sheen_texname.c_str());
-    printf("  material.norm   = %s\n", materials[i].normal_texname.c_str());
-    std::map<std::string, std::string>::const_iterator it(
-        materials[i].unknown_parameter.begin());
-    std::map<std::string, std::string>::const_iterator itEnd(
-        materials[i].unknown_parameter.end());
-
-    for (; it != itEnd; it++) {
-      printf("  material.%s = %s\n", it->first.c_str(), it->second.c_str());
-    }
-    printf("\n");
-  }
-}
-
-
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
 // vim: set spell spelllang=pt_br :
