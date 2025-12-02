@@ -21,6 +21,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
+#include "collisions.h"
 
 // Headers das bibliotecas OpenGL
 #include <glad/glad.h>   // Criação de contexto OpenGL 3.3
@@ -99,6 +100,12 @@ glm::vec3 g_CarPosition = glm::vec3(0.0f, -0.5f, 0.0f);
 float g_CarAngle = 0.0f;            // Rotação em Y
 float g_CarSpeed = 4.0f;            // unidades por segundo
 float g_CarTurnSpeed = 2.5f;        // radianos por segundo
+
+glm::vec3 g_Car2Position = glm::vec3(3.0f, -0.5f, 0.5f);
+float g_Car2Angle = 0.0f;
+float g_Car2Speed = 4.0f;
+float g_Car2TurnSpeed = 2.5f;
+
 
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
@@ -286,6 +293,8 @@ glm::vec3 BezierTangent(float t)
 std::string g_CharizardName;
 std::vector<std::string> g_CarParts;
 std::vector<std::string> g_BulbasaurParts;
+std::vector<std::string> g_TreeParts;
+
 
 glm::vec4 GetFollowCameraPosition()
 {
@@ -391,6 +400,11 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/bulbasaur.png");
     LoadTextureImage("../../data/gravelly_sand_diff_4k.jpg");
     LoadTextureImage("../../data/taxi_cab.jpg");
+    LoadTextureImage("../../data/T_Trees_temp_climate.png");
+
+    ObjModel treemodel("../../data/Lowpoly_tree_sample.obj");
+    ComputeNormals(&treemodel);
+    BuildTrianglesAndAddToVirtualScene(&treemodel);
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -446,6 +460,19 @@ if (g_BulbasaurParts.empty())
 {
     fprintf(stderr, "WARN: bulbasaur.obj nao possui shapes com nome.\n");
 }
+
+// --- Arvore: guardar TODAS as partes
+for (const auto& shape : treemodel.shapes)
+{
+    g_TreeParts.push_back(shape.name); // não pergunte se está vazio
+}
+
+std::vector<glm::vec3> tree_positions = {
+    glm::vec3(-6.0f, -1.0f, -5.0f),
+    glm::vec3(-6.0f, -1.0f,  0.0f),
+    glm::vec3( 5.0f, -1.0f, 10.0f),
+    glm::vec3(-8.0f, -1.0f, 15.0f)
+};
 
 
     if ( argc > 1 )
@@ -554,6 +581,81 @@ while (!glfwWindowShouldClose(window))
     if (tecla_W)
         g_CarPosition += forward * g_CarSpeed * delta_time;
 
+        // AABB local do carro (usa a primeira parte do modelo)
+glm::vec3 carLocalMin = g_VirtualScene[g_CarParts[0]].bbox_min;
+glm::vec3 carLocalMax = g_VirtualScene[g_CarParts[0]].bbox_max;
+
+// Model matrix do carro (mesma usada para desenhar)
+glm::mat4 modelCar1 =
+    Matrix_Translate(g_CarPosition.x, g_CarPosition.y, g_CarPosition.z) *
+    Matrix_Rotate_Y(glm::radians(g_CarAngle)) *
+    Matrix_Scale(1.2f, 1.2f, 1.2f);
+
+    glm::mat4 modelCar2 =
+    Matrix_Translate(g_Car2Position.x, g_Car2Position.y, g_Car2Position.z) *
+    Matrix_Rotate_Y(glm::radians(g_Car2Angle)) *
+    Matrix_Scale(1.2f, 1.2f, 1.2f);
+
+
+glm::vec3 carMin, carMax;
+ComputeWorldAABB(carLocalMin, carLocalMax, modelCar1, carMin, carMax);
+
+// AABB local das árvores
+float treeScale = 0.2f;
+
+glm::vec3 treeLocalMin = g_VirtualScene[g_TreeParts[0]].bbox_min * treeScale;
+glm::vec3 treeLocalMax = g_VirtualScene[g_TreeParts[0]].bbox_max * treeScale;
+
+
+for (const glm::vec3& treePos : tree_positions)
+{
+    glm::mat4 modelTree =
+        Matrix_Translate(treePos.x, treePos.y, treePos.z) *
+        Matrix_Scale(0.3f, 0.3f, 0.3f);
+
+    glm::vec3 treeMin, treeMax;
+    ComputeWorldAABB(treeLocalMin, treeLocalMax, modelTree, treeMin, treeMax);
+
+    if (AABBvsAABB(carMin, carMax, treeMin, treeMax))
+    {
+        g_CarPosition -= forward * (5.0f * delta_time);
+        g_CarSpeed = 4.0f;  // impacto
+        break;
+    }
+}
+
+//------------------------------------------
+// --- Colisão Carro 1 x Carro 2 ---
+//------------------------------------------
+
+glm::vec3 localMin = g_VirtualScene[g_CarParts[0]].bbox_min;
+glm::vec3 localMax = g_VirtualScene[g_CarParts[0]].bbox_max;
+
+// AABB do Carro 1
+glm::vec3 car1Min, car1Max;
+ComputeWorldAABB(localMin, localMax, modelCar1, car1Min, car1Max);
+
+// AABB do Carro 2
+glm::vec3 car2Min, car2Max;
+ComputeWorldAABB(localMin, localMax, modelCar2, car2Min, car2Max);
+
+if (AABBvsAABB(car1Min, car1Max, car2Min, car2Max))
+{
+    // Recuo simples e forte
+    g_CarPosition -= forward * (g_CarSpeed * delta_time * 4.0f);
+
+    // Evita que o carro fique preso aumentando o impulso de saída
+    g_CarPosition -= forward * 0.2f;
+
+    // Impacto leve
+    g_CarSpeed = 2.0f;
+}
+else
+{
+    g_CarSpeed = 4.0f;  // velocidade normal
+}
+
+
     if (tecla_S)
         g_CarPosition -= forward * g_CarSpeed * delta_time;
 
@@ -637,6 +739,8 @@ while (!glfwWindowShouldClose(window))
         #define PLANE  2
         #define CHARIZARD 3
         #define BULBASAUR 4
+        #define TREE 5
+
 
         glDepthMask(GL_FALSE);
         glCullFace(GL_FRONT);
@@ -716,8 +820,22 @@ if (!g_BulbasaurParts.empty())
 }
 
 
+        // --- Árvores ao longo da pista ---
+if (!g_TreeParts.empty())
+{
+    for (const glm::vec3& pos : tree_positions)
+    {
+        glm::mat4 model =
+            Matrix_Translate(pos.x, pos.y, pos.z - 0.5f) *
+            Matrix_Scale(0.2f, 0.2f, 0.2f); // Ajuste se necessário
 
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, TREE); // use um ID livre OU crie TREE = 5
 
+        for (const auto& part_name : g_TreeParts)
+            DrawVirtualObject(part_name.c_str());
+    }
+}
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f)*
