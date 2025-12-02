@@ -131,6 +131,7 @@ void TextRendering_PrintVector(GLFWwindow* window, glm::vec4 v, float x, float y
 void TextRendering_PrintMatrixVectorProduct(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProductMoreDigits(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
+void RenderStartScreen(GLFWwindow* window);
 
 // Funções abaixo renderizam como texto na janela OpenGL algumas matrizes e
 // outras informações do programa. Definidas após main().
@@ -234,6 +235,9 @@ bool tecla_W = false;
 bool tecla_S = false;
 bool tecla_A = false;
 bool tecla_D = false;
+
+bool g_ShowStartScreen = true;
+
 
 // Pontos de controle da curva Bezier (ajuste como quiser)
 glm::vec3 P0 = glm::vec3( 5, 0,  0);
@@ -478,21 +482,19 @@ if (g_BulbasaurParts.empty())
     u = u / norm(u);
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
-    while (!glfwWindowShouldClose(window))
+while (!glfwWindowShouldClose(window))
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // -------- TELA INICIAL --------
+    if (g_ShowStartScreen)
     {
-        // Aqui executamos as operações de renderização
+        RenderStartScreen(window);
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+        continue; // NÃO desenha o jogo ainda
+    }
 
-        // Definimos a cor do "fundo" do framebuffer como branco.  Tal cor é
-        // definida como coeficientes RGBA: Red, Green, Blue, Alpha; isto é:
-        // Vermelho, Verde, Azul, Alpha (valor de transparência).
-        // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
-        //
-        //           R     G     B     A
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-
-        // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
-        // e também resetamos todos os pixels do Z-buffer (depth buffer).
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Pedimos para a GPU utilizar o programa de GPU criado acima (contendo
         // os shaders de vértice e fragmentos).
@@ -677,41 +679,42 @@ if (g_BulbasaurParts.empty())
 
     // --- Carro 2 (se quiser outra cópia do carro em outro lugar) ---
 // --- Carro 2 ---
-    if (!g_CarParts.empty()) {
-        glm::mat4 model_car2 =
-            Matrix_Translate(car2_pos.x, -0.6f + car2_pos.y, car2_pos.z) *
-            Matrix_Rotate_Y(car2_angle + 3.1415f) *      // vira para frente
-            Matrix_Scale(1.2f, 1.2f, 1.2f);
+// --- Carro 2 ---
+if (!g_CarParts.empty()) {
+    glm::mat4 model_car2 =
+        Matrix_Translate(car2_pos.x, -0.6f + car2_pos.y, car2_pos.z) *
+        Matrix_Rotate_Y(car2_angle + 3.1415f) *   // vira para frente
+        Matrix_Scale(1.2f, 1.2f, 1.2f);
 
-        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_car2));
-        glUniform1i(g_object_id_uniform, CAR);
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_car2));
+    glUniform1i(g_object_id_uniform, CAR);
 
-        for (const auto& part_name : g_CarParts)
-            DrawVirtualObject(part_name.c_str());
-    }
+    for (const auto& part_name : g_CarParts)
+        DrawVirtualObject(part_name.c_str());
+}
 
-            // === Movimento do Bulbasaur pela curva ===
-        float t_bulba = t_bezier - 0.15f;  // fica atrás
-        if (t_bulba < 0.0f) t_bulba += 1.0f;
 
-        glm::vec3 bulba_pos = BezierPos(t_bulba);
-        glm::vec3 bulba_tan = glm::normalize(BezierTangent(t_bulba));
+// === Bulbasaur preso em cima do Carro 2 ===
+if (!g_BulbasaurParts.empty())
+{
+    // Posição fixa acima do carro 2 (ajuste a altura como quiser)
+    glm::vec3 bulba_pos = car2_pos + glm::vec3(0.0f, -0.3f, 0.0f);
 
-        float bulba_angle = atan2(bulba_tan.x, bulba_tan.z);
+    // Escala muito menor: o modelo é gigante naturalmente
+    float bulba_scale = 0.03f;
 
-                if (!g_BulbasaurParts.empty()) {
+    glm::mat4 bulba_model =
+        Matrix_Translate(bulba_pos.x, bulba_pos.y, bulba_pos.z) *
+        Matrix_Rotate_Y(car2_angle) *
+        Matrix_Scale(bulba_scale, bulba_scale, bulba_scale);
 
-            glm::mat4 model_bulba =
-                Matrix_Translate(bulba_pos.x, bulba_pos.y - 0.1f, bulba_pos.z) *
-                Matrix_Rotate_Y(bulba_angle + 3.1415f) *
-                Matrix_Scale(0.02f, 0.02f, 0.02f);
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(bulba_model));
+    glUniform1i(g_object_id_uniform, BULBASAUR);
 
-            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_bulba));
-            glUniform1i(g_object_id_uniform, BULBASAUR);
+    for (const auto& part_name : g_BulbasaurParts)
+        DrawVirtualObject(part_name.c_str());
+}
 
-            for (const auto& part_name : g_BulbasaurParts)
-                DrawVirtualObject(part_name.c_str());
-        }
 
 
 
@@ -1706,6 +1709,16 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_D = false;
         }
     }
+
+    if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
+{
+    if (g_ShowStartScreen)
+    {
+        g_ShowStartScreen = false;
+        return;
+    }
+}
+
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
@@ -2033,6 +2046,40 @@ void PrintObjModelInfo(ObjModel* model)
     printf("\n");
   }
 }
+
+void RenderStartScreen(GLFWwindow* window)
+{
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    float y = 0.2f;
+
+    TextRendering_PrintString(window, "POKEKART",
+        -0.16f, y, 2.0f);
+
+    TextRendering_PrintString(window, "Pressione ENTER para comecar",
+        -0.25f, y - 0.15f, 1.0f);
+
+    TextRendering_PrintString(window, "Controles:",
+        -0.12f, y - 0.30f, 1.0f);
+
+    TextRendering_PrintString(window, "W A S D  - mover",
+        -0.12f, y - 0.38f, 1.0f);
+
+    TextRendering_PrintString(window, "C - trocar de camera",
+        -0.12f, y - 0.46f, 1.0f);
+
+    TextRendering_PrintString(window, "ESC - sair",
+        -0.12f, y - 0.54f, 1.0f);
+
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+}
+
 
 
 

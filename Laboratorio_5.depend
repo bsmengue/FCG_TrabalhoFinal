@@ -1924,7 +1924,7 @@
 	<inttypes.h>
 	<stdint.h>
 
-1764644569 source:c:\users\bruno\fcg_trabalhofinal\src\main.cpp
+1764650665 source:c:\users\bruno\fcg_trabalhofinal\src\main.cpp
 	<cmath>
 	<cstdio>
 	<cstdlib>
@@ -2833,7 +2833,7 @@
 1762888676 source:c:\users\bruno\fcg_trabalhofinal\src\stb_image.cpp
 	"stb_image.h"
 
-1762888676 source:c:\users\bruno\fcg_trabalhofinal\src\textrendering.cpp
+1764649928 source:c:\users\bruno\fcg_trabalhofinal\src\textrendering.cpp
 	<string>
 	<glad/glad.h>
 	<GLFW/glfw3.h>
