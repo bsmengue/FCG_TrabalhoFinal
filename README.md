@@ -144,10 +144,11 @@ compatibility issues."
 Tecla A, W, S, D -  usadas na movimentação do veiculo principal nas direções de esquerda, frentes, trás, direita, respectivamente.
 Tecla C - usada para alternar entre as câmeras livre e lookat.
 Teclas LEFT, UP, DOWN e RIGHT - usadas para a movimentação da camera livre.
+Tecla ENTER - iniciar o jogo
 Mouse - usado para controle do ângulo da camera em qualquer um dos casos.
 
 # Contribuições
-- Bruno: a partir do Laboratório 5 completo, fiz subi os modelos do Pokemon e e texturizei eles, além de colocar texturas no plano e criar uma esfera externa para simular um céu. Fiz a implementações da cameras câmeras livre e look-at.
+- Bruno: a partir do Laboratório 5 completo, fiz subi os modelos dos Pokemon e do carro e texturizei eles, além de colocar texturas nos planos que compõe a estrada e o chão e criar uma esfera externa para simular um céu. Fiz a implementações da cameras câmeras livre e look-at. Implementei a curva de bezier no carro competidor e inclui os modelos de iluminação e interpolação desejados.
 - Luana:
 
 # Uso de IA Generativa para código
@@ -157,3 +158,12 @@ A utilidade da ferramenta vem da velocidade como ela consegue encontrar informa�
 
 # Desenvolvimento da Aplicação e Uso do Conceito de FCG
 
+A partir do Lab 5, os passos foram os seguintes:
+
+1. Pesquisa de modelos e texturas para a cena. Enfrentamos dificuldades para conseguir implementar objetos com múltiplas partes e texturas. Muito desse momento inicial do desenvolvimento também se relacionou com o aprendizado de como lidar com outros tipos de modelos em OpenGL para além dos vistos em aula e modificar suas matrizes além de lidar com sua importação para dentro do projeto.
+
+2. Ainda sem ter resolvido completamente a etapa anterior, começamos a trabalhar nas movimentações do carro e da cêmera livre, que seguem lógicas similares em nossa implementação. Nesse momento, começamos a enfrentar problemas com as configurações do CodeBlocks de forma que isso atrasou o desenvolvimento em alguns dias.
+
+3. Resolvidos os problemas técnicos e dos modelos, conseguimos desenvolver muito rapidamente muitos dos requisitos, pela maior familiaridade que adquirimos no processo com a linguagem. Nesse momento, a maior dificuldade foram os modelos de iluminação, que deixamos para o final, priorizando outras features que permitiram com que chegassemos em um resultado que consideramos bom do trabalho.
+
+OBS: O modelo de iluminação Blinn-Phong já foi implementado após a apresentação, sendo aplicado aos carros.
