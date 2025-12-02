@@ -97,7 +97,7 @@
 			<Add directory="include" />
 		</Compiler>
 		<Linker>
-			<Add directory="C:/Users/bruno/FCG_TrabalhoFinal/lib-mingw-32" />
+			<Add directory="lib-mingw-64" />
 		</Linker>
 		<Unit filename="include/GLFW/glfw3.h" />
 		<Unit filename="include/GLFW/glfw3native.h" />

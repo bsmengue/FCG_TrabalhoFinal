@@ -1924,7 +1924,7 @@
 	<inttypes.h>
 	<stdint.h>
 
-1764650665 source:c:\users\bruno\fcg_trabalhofinal\src\main.cpp
+1764656028 source:c:\users\bruno\fcg_trabalhofinal\src\main.cpp
 	<cmath>
 	<cstdio>
 	<cstdlib>
@@ -1938,6 +1938,7 @@
 	<sstream>
 	<stdexcept>
 	<algorithm>
+	"collisions.h"
 	<glad/glad.h>
 	<GLFW/glfw3.h>
 	<glm/mat4x4.hpp>
@@ -2848,4 +2849,81 @@
 
 1762888676 source:c:\users\bruno\fcg_trabalhofinal\src\tiny_obj_loader.cpp
 	"tiny_obj_loader.h"
+
+1764652032 c:\users\bruno\fcg_trabalhofinal\include\collisions.h
+	<glm/glm.hpp>
+
+1762888656 c:\users\bruno\fcg_trabalhofinal\include\glm\glm.hpp
+	"detail/_fixes.hpp"
+	"detail/setup.hpp"
+	<cmath>
+	<climits>
+	<cfloat>
+	<limits>
+	<cassert>
+	"fwd.hpp"
+	"vec2.hpp"
+	"vec3.hpp"
+	"vec4.hpp"
+	"mat2x2.hpp"
+	"mat2x3.hpp"
+	"mat2x4.hpp"
+	"mat3x2.hpp"
+	"mat3x3.hpp"
+	"mat3x4.hpp"
+	"mat4x2.hpp"
+	"mat4x3.hpp"
+	"mat4x4.hpp"
+	"trigonometric.hpp"
+	"exponential.hpp"
+	"common.hpp"
+	"packing.hpp"
+	"geometric.hpp"
+	"matrix.hpp"
+	"vector_relational.hpp"
+	"integer.hpp"
+
+1762888655 c:\users\bruno\fcg_trabalhofinal\include\glm\fwd.hpp
+	"detail/qualifier.hpp"
+
+1762888656 c:\users\bruno\fcg_trabalhofinal\include\glm\packing.hpp
+	"./ext/vector_uint2.hpp"
+	"./ext/vector_float2.hpp"
+	"./ext/vector_float4.hpp"
+	"detail/func_packing.inl"
+
+1762888657 c:\users\bruno\fcg_trabalhofinal\include\glm\detail\func_packing.inl
+	"../common.hpp"
+	"type_half.hpp"
+	"func_packing_simd.inl"
+
+1762888658 c:\users\bruno\fcg_trabalhofinal\include\glm\detail\type_half.hpp
+	"setup.hpp"
+	"type_half.inl"
+
+1762888658 c:\users\bruno\fcg_trabalhofinal\include\glm\detail\type_half.inl
+
+1762888657 c:\users\bruno\fcg_trabalhofinal\include\glm\detail\func_packing_simd.inl
+
+1762888656 c:\users\bruno\fcg_trabalhofinal\include\glm\integer.hpp
+	"detail/qualifier.hpp"
+	"common.hpp"
+	"vector_relational.hpp"
+	"detail/func_integer.inl"
+
+1762888657 c:\users\bruno\fcg_trabalhofinal\include\glm\detail\func_integer.inl
+	"_vectorize.hpp"
+	<intrin.h>
+	<limits>
+	"func_integer_simd.inl"
+
+1762888657 c:\users\bruno\fcg_trabalhofinal\include\glm\detail\func_integer_simd.inl
+	"../simd/integer.h"
+
+1762888675 c:\users\bruno\fcg_trabalhofinal\include\glm\simd\integer.h
+
+1764652032 source:c:\users\bruno\fcg_trabalhofinal\src\collisions.cpp
+	"collisions.h"
+	<glm/glm.hpp>
+	<algorithm>
 

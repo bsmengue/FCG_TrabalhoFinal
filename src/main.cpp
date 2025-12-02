@@ -96,15 +96,51 @@ struct ObjModel
     }
 };
 
-glm::vec3 g_CarPosition = glm::vec3(0.0f, -0.5f, 0.0f);
-float g_CarAngle = 0.0f;            // Rotação em Y
-float g_CarSpeed = 4.0f;            // unidades por segundo
+glm::vec3 g_CarPosition  = glm::vec3(-20.0f, -0.5f, -2.0f);
+float g_CarAngle = 3.141592f;            // Rotação em Y
+float g_CarSpeed = 500.0f;            // unidades por segundo
 float g_CarTurnSpeed = 2.5f;        // radianos por segundo
 
-glm::vec3 g_Car2Position = glm::vec3(3.0f, -0.5f, 0.5f);
+glm::vec3 g_Car2Position = glm::vec3(-20.0f, 0.5f,  2.0f);
 float g_Car2Angle = 0.0f;
 float g_Car2Speed = 4.0f;
 float g_Car2TurnSpeed = 2.5f;
+
+// =========================================================
+// 4 curvas Bezier que formarão um loop completo
+// =========================================================
+
+glm::vec3 B1[4] = { {-20, -0.5f,  0}, {-20, -0.5f, -15}, {  0, -0.5f, -20}, { 20, -0.5f, -20} };
+glm::vec3 B2[4] = { { 20, -0.5f, -20}, { 15, -0.5f, -20}, { 20, -0.5f,   0}, { 20, -0.5f,  20} };
+glm::vec3 B3[4] = { { 20, -0.5f,  20}, { 20, -0.5f,  15}, {  0, -0.5f,  20}, {-20, -0.5f,  20} };
+glm::vec3 B4[4] = { {-20, -0.5f,  20}, {-20, -0.5f,  15}, {-20, -0.5f,   0}, {-20, -0.5f,   0} }; // Fecha o loop
+
+glm::vec3 Bezier(glm::vec3 P[4], float t)
+{
+    float u = 1.0f - t;
+    return
+        u*u*u * P[0] +
+        3*u*u*t * P[1] +
+        3*u*t*t * P[2] +
+        t*t*t * P[3];
+}
+
+glm::vec3 BezierTangent(glm::vec3 P[4], float t)
+{
+    float u = 1.0f - t;
+    glm::vec3 d =
+        -3*u*u * P[0] +
+        3*(u*u - 2*u*t) * P[1] +
+        3*(2*t*u - t*t) * P[2] +
+        3*t*t * P[3];
+
+    return glm::normalize(d);
+}
+
+float g_tCar2 = 0.0f;
+
+float g_Car2_t = 0.0f;
+
 
 
 
@@ -236,7 +272,7 @@ bool tecla_UP = false;
 bool tecla_DOWN = false;
 bool tecla_LEFT = false;
 bool tecla_RIGHT = false;
-bool camera_tipo = true; // true ativa camera look-at, false ativa camera livre
+bool camera_tipo = false; // true ativa camera look-at, false ativa camera livre
 
 bool tecla_W = false;
 bool tecla_S = false;
@@ -286,7 +322,6 @@ glm::vec3 BezierTangent(float t)
         (6.0f * u * t - 3.0f * t * t) * P2 +
         3.0f * t * t * P3;
 }
-
 
 
 
@@ -664,11 +699,50 @@ else
     if (t_bezier > 1.0f)
         t_bezier = 0.0f;   // Loop infinito
 
-        // === Movimento do Carro 2 pela curva de Bezier ===
-    glm::vec3 car2_pos = BezierPos(t_bezier);              // Posição
-    glm::vec3 car2_tan = glm::normalize(BezierTangent(t_bezier)); // Tangente
 
-    float car2_angle = atan2(car2_tan.x, car2_tan.z); // orientação do carro
+// Avança o Carro 2 SOMENTE depois de pressionar ENTER
+if (!g_ShowStartScreen)
+{
+    g_tCar2 += 0.02f * delta_time;
+    if (g_tCar2 > 1.0f)
+        g_tCar2 -= 1.0f;
+}
+
+
+
+// ======================================================
+// Movimento do Carro 2 pelas 4 curvas Bézier conectadas
+// ======================================================
+glm::vec3 car2_pos;
+glm::vec3 car2_tan;
+
+if (g_tCar2 < 0.25f) {
+    float tl = g_tCar2 / 0.25f;
+    car2_pos = Bezier(B1, tl);
+    car2_tan = BezierTangent(B1, tl);
+}
+else if (g_tCar2 < 0.50f) {
+    float tl = (g_tCar2 - 0.25f) / 0.25f;
+    car2_pos = Bezier(B2, tl);
+    car2_tan = BezierTangent(B2, tl);
+}
+else if (g_tCar2 < 0.75f) {
+    float tl = (g_tCar2 - 0.50f) / 0.25f;
+    car2_pos = Bezier(B3, tl);
+    car2_tan = BezierTangent(B3, tl);
+}
+else {
+    float tl = (g_tCar2 - 0.75f) / 0.25f;
+    car2_pos = Bezier(B4, tl);
+    car2_tan = BezierTangent(B4, tl);
+}
+
+float car2_angle = atan2(car2_tan.x, car2_tan.z);
+
+// Atualiza as variáveis usadas na renderização
+g_Car2Position = car2_pos;
+g_Car2Angle    = car2_angle;
+
 
 
 
@@ -703,7 +777,7 @@ else
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -30.0f; // Posição do "far plane"
+        float farplane  = -50.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -780,13 +854,12 @@ else
 
 
 
-
     // --- Carro 2 (se quiser outra cópia do carro em outro lugar) ---
 // --- Carro 2 ---
 // --- Carro 2 ---
 if (!g_CarParts.empty()) {
     glm::mat4 model_car2 =
-        Matrix_Translate(car2_pos.x, -0.6f + car2_pos.y, car2_pos.z) *
+        Matrix_Translate(car2_pos.x, car2_pos.y, car2_pos.z) *
         Matrix_Rotate_Y(car2_angle + 3.1415f) *   // vira para frente
         Matrix_Scale(1.2f, 1.2f, 1.2f);
 
