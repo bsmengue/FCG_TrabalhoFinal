@@ -25,6 +25,7 @@ out vec4 position_world;
 out vec4 position_model;
 out vec4 normal;
 out vec2 texcoords;
+out vec3 gouraud_color;
 
 void main()
 {
@@ -54,4 +55,21 @@ void main()
             texcoords = vec2(position_world.x, position_world.z) * 2.0;
         }
     }
+
+    // Direção da luz (mesma usada no fragment shader)
+    vec4 light_dir = normalize(vec4(1,1,0,0));
+
+    // Normal já transformada e normalizada
+    vec3 N = normalize((inverse(transpose(model)) * normal_coefficients).xyz);
+
+    // Cálculo difuso simplificado
+    float lambert = max(0, dot(N, light_dir.xyz));
+
+    // Termo ambiente
+    float ambient = 0.02;
+
+    // Cor base (Kd) – textura será aplicada no fragment shader
+    // Aqui enviamos apenas a intensidade da luz
+    gouraud_color = vec3(lambert + ambient);
+
 }
