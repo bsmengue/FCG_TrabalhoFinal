@@ -96,6 +96,7 @@ struct ObjModel
     }
 };
 
+
 GLuint checkpointVAO;
 int checkpointSegments = 48;
 
@@ -113,15 +114,51 @@ std::string winner = "";
 float finishZ = 0.0f;  // coloque onde você quer a linha de chegada
 
 
-glm::vec3 g_CarPosition = glm::vec3(0.0f, -0.5f, 0.0f);
-float g_CarAngle = 0.0f;            // Rotação em Y
-float g_CarSpeed = 4.0f;            // unidades por segundo
+glm::vec3 g_CarPosition  = glm::vec3(-20.0f, -0.5f, -2.0f);
+float g_CarAngle = 3.141592f;            // Rotação em Y
+float g_CarSpeed = 500.0f;            // unidades por segundo
 float g_CarTurnSpeed = 2.5f;        // radianos por segundo
 
-glm::vec3 g_Car2Position = glm::vec3(3.0f, -0.5f, 0.5f);
+glm::vec3 g_Car2Position = glm::vec3(-20.0f, 0.5f,  2.0f);
 float g_Car2Angle = 0.0f;
 float g_Car2Speed = 4.0f;
 float g_Car2TurnSpeed = 2.5f;
+
+// =========================================================
+// 4 curvas Bezier que formarão um loop completo
+// =========================================================
+
+glm::vec3 B1[4] = { {-20, -0.5f,  0}, {-20, -0.5f, -15}, {  0, -0.5f, -20}, { 20, -0.5f, -20} };
+glm::vec3 B2[4] = { { 20, -0.5f, -20}, { 15, -0.5f, -20}, { 20, -0.5f,   0}, { 20, -0.5f,  20} };
+glm::vec3 B3[4] = { { 20, -0.5f,  20}, { 20, -0.5f,  15}, {  0, -0.5f,  20}, {-20, -0.5f,  20} };
+glm::vec3 B4[4] = { {-20, -0.5f,  20}, {-20, -0.5f,  15}, {-20, -0.5f,   0}, {-20, -0.5f,   0} }; // Fecha o loop
+
+glm::vec3 Bezier(glm::vec3 P[4], float t)
+{
+    float u = 1.0f - t;
+    return
+        u*u*u * P[0] +
+        3*u*u*t * P[1] +
+        3*u*t*t * P[2] +
+        t*t*t * P[3];
+}
+
+glm::vec3 BezierTangent(glm::vec3 P[4], float t)
+{
+    float u = 1.0f - t;
+    glm::vec3 d =
+        -3*u*u * P[0] +
+        3*(u*u - 2*u*t) * P[1] +
+        3*(2*t*u - t*t) * P[2] +
+        3*t*t * P[3];
+
+    return glm::normalize(d);
+}
+
+float g_tCar2 = 0.0f;
+float old_tCar2 = 0.0f;
+float g_Car2_t = 0.0f;
+
 
 
 
@@ -155,6 +192,7 @@ void TextRendering_PrintVector(GLFWwindow* window, glm::vec4 v, float x, float y
 void TextRendering_PrintMatrixVectorProduct(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProductMoreDigits(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
+void RenderStartScreen(GLFWwindow* window);
 
 // Funções abaixo renderizam como texto na janela OpenGL algumas matrizes e
 // outras informações do programa. Definidas após main().
@@ -251,12 +289,17 @@ bool tecla_UP = false;
 bool tecla_DOWN = false;
 bool tecla_LEFT = false;
 bool tecla_RIGHT = false;
-bool camera_tipo = true; // true ativa camera look-at, false ativa camera livre
+bool camera_tipo = false; // true ativa camera look-at, false ativa camera livre
 
 bool tecla_W = false;
 bool tecla_S = false;
 bool tecla_A = false;
 bool tecla_D = false;
+
+bool g_ShowStartScreen = true;
+bool car2FinishedLap = false;
+
+
 
 // Pontos de controle da curva Bezier (ajuste como quiser)
 glm::vec3 P0 = glm::vec3( 5, 0,  0);
@@ -298,7 +341,6 @@ glm::vec3 BezierTangent(float t)
         (6.0f * u * t - 3.0f * t * t) * P2 +
         3.0f * t * t * P3;
 }
-
 
 
 
@@ -573,21 +615,19 @@ checkpoints.push_back(cp3);
     u = u / norm(u);
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
-    while (!glfwWindowShouldClose(window))
+while (!glfwWindowShouldClose(window))
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // -------- TELA INICIAL --------
+    if (g_ShowStartScreen)
     {
-        // Aqui executamos as operações de renderização
+        RenderStartScreen(window);
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+        continue; // NÃO desenha o jogo ainda
+    }
 
-        // Definimos a cor do "fundo" do framebuffer como branco.  Tal cor é
-        // definida como coeficientes RGBA: Red, Green, Blue, Alpha; isto é:
-        // Vermelho, Verde, Azul, Alpha (valor de transparência).
-        // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
-        //
-        //           R     G     B     A
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-
-        // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
-        // e também resetamos todos os pixels do Z-buffer (depth buffer).
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Pedimos para a GPU utilizar o programa de GPU criado acima (contendo
         // os shaders de vértice e fragmentos).
@@ -748,11 +788,60 @@ else
     if (t_bezier > 1.0f)
         t_bezier = 0.0f;   // Loop infinito
 
-        // === Movimento do Carro 2 pela curva de Bezier ===
-    glm::vec3 car2_pos = BezierPos(t_bezier);              // Posição
-    glm::vec3 car2_tan = glm::normalize(BezierTangent(t_bezier)); // Tangente
 
-    float car2_angle = atan2(car2_tan.x, car2_tan.z); // orientação do carro
+// Avança o Carro 2 SOMENTE depois de pressionar ENTER
+if (!g_ShowStartScreen)
+{
+    old_tCar2 = g_tCar2;     // <---- SALVA O VALOR ANTERIOR
+
+    g_tCar2 += 0.02f * delta_time;
+    if (g_tCar2 > 1.0f)
+        g_tCar2 -= 1.0f;
+}
+
+
+// Detecta quando completou 1 volta inteira
+if (!car2FinishedLap && old_tCar2 > 0.9f && g_tCar2 < 0.1f)
+{
+    car2FinishedLap = true;
+}
+
+
+
+
+// ======================================================
+// Movimento do Carro 2 pelas 4 curvas Bézier conectadas
+// ======================================================
+glm::vec3 car2_pos;
+glm::vec3 car2_tan;
+
+if (g_tCar2 < 0.25f) {
+    float tl = g_tCar2 / 0.25f;
+    car2_pos = Bezier(B1, tl);
+    car2_tan = BezierTangent(B1, tl);
+}
+else if (g_tCar2 < 0.50f) {
+    float tl = (g_tCar2 - 0.25f) / 0.25f;
+    car2_pos = Bezier(B2, tl);
+    car2_tan = BezierTangent(B2, tl);
+}
+else if (g_tCar2 < 0.75f) {
+    float tl = (g_tCar2 - 0.50f) / 0.25f;
+    car2_pos = Bezier(B3, tl);
+    car2_tan = BezierTangent(B3, tl);
+}
+else {
+    float tl = (g_tCar2 - 0.75f) / 0.25f;
+    car2_pos = Bezier(B4, tl);
+    car2_tan = BezierTangent(B4, tl);
+}
+
+float car2_angle = atan2(car2_tan.x, car2_tan.z);
+
+// Atualiza as variáveis usadas na renderização
+g_Car2Position = car2_pos;
+g_Car2Angle    = car2_angle;
+
 
 
 
@@ -787,7 +876,7 @@ else
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -30.0f; // Posição do "far plane"
+        float farplane  = -100.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -829,7 +918,7 @@ else
         glDepthMask(GL_FALSE);
         glCullFace(GL_FRONT);
 
-        model = Matrix_Scale(5.0f,5.0f,5.0f);
+        model = Matrix_Scale(50.0f,50.0f,50.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SPHERE);
         DrawVirtualObject("the_sphere");
@@ -863,44 +952,44 @@ else
 
 
 
-
     // --- Carro 2 (se quiser outra cópia do carro em outro lugar) ---
 // --- Carro 2 ---
-    if (!g_CarParts.empty()) {
-        glm::mat4 model_car2 =
-            Matrix_Translate(car2_pos.x, -0.6f + car2_pos.y, car2_pos.z) *
-            Matrix_Rotate_Y(car2_angle + 3.1415f) *      // vira para frente
-            Matrix_Scale(1.2f, 1.2f, 1.2f);
+// --- Carro 2 ---
+if (!g_CarParts.empty()) {
+    glm::mat4 model_car2 =
+        Matrix_Translate(car2_pos.x, car2_pos.y, car2_pos.z) *
+        Matrix_Rotate_Y(car2_angle + 3.1415f) *   // vira para frente
+        Matrix_Scale(1.2f, 1.2f, 1.2f);
 
-        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_car2));
-        glUniform1i(g_object_id_uniform, CAR);
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_car2));
+    glUniform1i(g_object_id_uniform, CAR);
 
-        for (const auto& part_name : g_CarParts)
-            DrawVirtualObject(part_name.c_str());
-    }
+    for (const auto& part_name : g_CarParts)
+        DrawVirtualObject(part_name.c_str());
+}
 
-            // === Movimento do Bulbasaur pela curva ===
-        float t_bulba = t_bezier - 0.15f;  // fica atrás
-        if (t_bulba < 0.0f) t_bulba += 1.0f;
 
-        glm::vec3 bulba_pos = BezierPos(t_bulba);
-        glm::vec3 bulba_tan = glm::normalize(BezierTangent(t_bulba));
+// === Bulbasaur preso em cima do Carro 2 ===
+if (!g_BulbasaurParts.empty())
+{
+    // Posição fixa acima do carro 2 (ajuste a altura como quiser)
+    glm::vec3 bulba_pos = car2_pos + glm::vec3(0.0f, -0.3f, 0.0f);
 
-        float bulba_angle = atan2(bulba_tan.x, bulba_tan.z);
+    // Escala muito menor: o modelo é gigante naturalmente
+    float bulba_scale = 0.03f;
 
-                if (!g_BulbasaurParts.empty()) {
+    glm::mat4 bulba_model =
+        Matrix_Translate(bulba_pos.x, bulba_pos.y, bulba_pos.z) *
+        Matrix_Rotate_Y(car2_angle) *
+        Matrix_Scale(bulba_scale, bulba_scale, bulba_scale);
 
-            glm::mat4 model_bulba =
-                Matrix_Translate(bulba_pos.x, bulba_pos.y - 0.1f, bulba_pos.z) *
-                Matrix_Rotate_Y(bulba_angle + 3.1415f) *
-                Matrix_Scale(0.02f, 0.02f, 0.02f);
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(bulba_model));
+    glUniform1i(g_object_id_uniform, BULBASAUR);
 
-            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model_bulba));
-            glUniform1i(g_object_id_uniform, BULBASAUR);
+    for (const auto& part_name : g_BulbasaurParts)
+        DrawVirtualObject(part_name.c_str());
+}
 
-            for (const auto& part_name : g_BulbasaurParts)
-                DrawVirtualObject(part_name.c_str());
-        }
 
         // --- Árvores ao longo da pista ---
 if (!g_TreeParts.empty())
@@ -962,6 +1051,16 @@ if (!raceFinished && canWin && g_CarPosition.z >= finishZ)
     raceFinished = true;
     winner = "Carro 1 venceu!";
 }
+
+// Verificar vitória do Carro 2
+// Vitória do Carro 2: completou 1 volta
+if (!raceFinished && car2FinishedLap)
+{
+    raceFinished = true;
+    winner = "Carro 2 venceu!";
+}
+
+
 
 
 
@@ -1957,6 +2056,16 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_D = false;
         }
     }
+
+    if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
+{
+    if (g_ShowStartScreen)
+    {
+        g_ShowStartScreen = false;
+        return;
+    }
+}
+
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
@@ -2080,6 +2189,211 @@ std::string FindObjectBySubstring(const std::string& token)
     return std::string(); // vazio = não achou
 }
 // TERMINA AQUI
+
+// Função para debugging: imprime no terminal todas informações de um modelo
+// geométrico carregado de um arquivo ".obj".
+// Veja: https://github.com/syoyo/tinyobjloader/blob/22883def8db9ef1f3ffb9b404318e7dd25fdbb51/loader_example.cc#L98
+void PrintObjModelInfo(ObjModel* model)
+{
+  const tinyobj::attrib_t                & attrib    = model->attrib;
+  const std::vector<tinyobj::shape_t>    & shapes    = model->shapes;
+  const std::vector<tinyobj::material_t> & materials = model->materials;
+
+  printf("# of vertices  : %d\n", (int)(attrib.vertices.size() / 3));
+  printf("# of normals   : %d\n", (int)(attrib.normals.size() / 3));
+  printf("# of texcoords : %d\n", (int)(attrib.texcoords.size() / 2));
+  printf("# of shapes    : %d\n", (int)shapes.size());
+  printf("# of materials : %d\n", (int)materials.size());
+
+  for (size_t v = 0; v < attrib.vertices.size() / 3; v++) {
+    printf("  v[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
+           static_cast<const double>(attrib.vertices[3 * v + 0]),
+           static_cast<const double>(attrib.vertices[3 * v + 1]),
+           static_cast<const double>(attrib.vertices[3 * v + 2]));
+  }
+
+  for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
+    printf("  n[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
+           static_cast<const double>(attrib.normals[3 * v + 0]),
+           static_cast<const double>(attrib.normals[3 * v + 1]),
+           static_cast<const double>(attrib.normals[3 * v + 2]));
+  }
+
+  for (size_t v = 0; v < attrib.texcoords.size() / 2; v++) {
+    printf("  uv[%ld] = (%f, %f)\n", static_cast<long>(v),
+           static_cast<const double>(attrib.texcoords[2 * v + 0]),
+           static_cast<const double>(attrib.texcoords[2 * v + 1]));
+  }
+
+  // For each shape
+  for (size_t i = 0; i < shapes.size(); i++) {
+    printf("shape[%ld].name = %s\n", static_cast<long>(i),
+           shapes[i].name.c_str());
+    printf("Size of shape[%ld].indices: %lu\n", static_cast<long>(i),
+           static_cast<unsigned long>(shapes[i].mesh.indices.size()));
+
+    size_t index_offset = 0;
+
+    assert(shapes[i].mesh.num_face_vertices.size() ==
+           shapes[i].mesh.material_ids.size());
+
+    printf("shape[%ld].num_faces: %lu\n", static_cast<long>(i),
+           static_cast<unsigned long>(shapes[i].mesh.num_face_vertices.size()));
+
+    // For each face
+    for (size_t f = 0; f < shapes[i].mesh.num_face_vertices.size(); f++) {
+      size_t fnum = shapes[i].mesh.num_face_vertices[f];
+
+      printf("  face[%ld].fnum = %ld\n", static_cast<long>(f),
+             static_cast<unsigned long>(fnum));
+
+      // For each vertex in the face
+      for (size_t v = 0; v < fnum; v++) {
+        tinyobj::index_t idx = shapes[i].mesh.indices[index_offset + v];
+        printf("    face[%ld].v[%ld].idx = %d/%d/%d\n", static_cast<long>(f),
+               static_cast<long>(v), idx.vertex_index, idx.normal_index,
+               idx.texcoord_index);
+      }
+
+      printf("  face[%ld].material_id = %d\n", static_cast<long>(f),
+             shapes[i].mesh.material_ids[f]);
+
+      index_offset += fnum;
+    }
+
+    printf("shape[%ld].num_tags: %lu\n", static_cast<long>(i),
+           static_cast<unsigned long>(shapes[i].mesh.tags.size()));
+    for (size_t t = 0; t < shapes[i].mesh.tags.size(); t++) {
+      printf("  tag[%ld] = %s ", static_cast<long>(t),
+             shapes[i].mesh.tags[t].name.c_str());
+      printf(" ints: [");
+      for (size_t j = 0; j < shapes[i].mesh.tags[t].intValues.size(); ++j) {
+        printf("%ld", static_cast<long>(shapes[i].mesh.tags[t].intValues[j]));
+        if (j < (shapes[i].mesh.tags[t].intValues.size() - 1)) {
+          printf(", ");
+        }
+      }
+      printf("]");
+
+      printf(" floats: [");
+      for (size_t j = 0; j < shapes[i].mesh.tags[t].floatValues.size(); ++j) {
+        printf("%f", static_cast<const double>(
+                         shapes[i].mesh.tags[t].floatValues[j]));
+        if (j < (shapes[i].mesh.tags[t].floatValues.size() - 1)) {
+          printf(", ");
+        }
+      }
+      printf("]");
+
+      printf(" strings: [");
+      for (size_t j = 0; j < shapes[i].mesh.tags[t].stringValues.size(); ++j) {
+        printf("%s", shapes[i].mesh.tags[t].stringValues[j].c_str());
+        if (j < (shapes[i].mesh.tags[t].stringValues.size() - 1)) {
+          printf(", ");
+        }
+      }
+      printf("]");
+      printf("\n");
+    }
+  }
+
+  for (size_t i = 0; i < materials.size(); i++) {
+    printf("material[%ld].name = %s\n", static_cast<long>(i),
+           materials[i].name.c_str());
+    printf("  material.Ka = (%f, %f ,%f)\n",
+           static_cast<const double>(materials[i].ambient[0]),
+           static_cast<const double>(materials[i].ambient[1]),
+           static_cast<const double>(materials[i].ambient[2]));
+    printf("  material.Kd = (%f, %f ,%f)\n",
+           static_cast<const double>(materials[i].diffuse[0]),
+           static_cast<const double>(materials[i].diffuse[1]),
+           static_cast<const double>(materials[i].diffuse[2]));
+    printf("  material.Ks = (%f, %f ,%f)\n",
+           static_cast<const double>(materials[i].specular[0]),
+           static_cast<const double>(materials[i].specular[1]),
+           static_cast<const double>(materials[i].specular[2]));
+    printf("  material.Tr = (%f, %f ,%f)\n",
+           static_cast<const double>(materials[i].transmittance[0]),
+           static_cast<const double>(materials[i].transmittance[1]),
+           static_cast<const double>(materials[i].transmittance[2]));
+    printf("  material.Ke = (%f, %f ,%f)\n",
+           static_cast<const double>(materials[i].emission[0]),
+           static_cast<const double>(materials[i].emission[1]),
+           static_cast<const double>(materials[i].emission[2]));
+    printf("  material.Ns = %f\n",
+           static_cast<const double>(materials[i].shininess));
+    printf("  material.Ni = %f\n", static_cast<const double>(materials[i].ior));
+    printf("  material.dissolve = %f\n",
+           static_cast<const double>(materials[i].dissolve));
+    printf("  material.illum = %d\n", materials[i].illum);
+    printf("  material.map_Ka = %s\n", materials[i].ambient_texname.c_str());
+    printf("  material.map_Kd = %s\n", materials[i].diffuse_texname.c_str());
+    printf("  material.map_Ks = %s\n", materials[i].specular_texname.c_str());
+    printf("  material.map_Ns = %s\n",
+           materials[i].specular_highlight_texname.c_str());
+    printf("  material.map_bump = %s\n", materials[i].bump_texname.c_str());
+    printf("  material.map_d = %s\n", materials[i].alpha_texname.c_str());
+    printf("  material.disp = %s\n", materials[i].displacement_texname.c_str());
+    printf("  <<PBR>>\n");
+    printf("  material.Pr     = %f\n", materials[i].roughness);
+    printf("  material.Pm     = %f\n", materials[i].metallic);
+    printf("  material.Ps     = %f\n", materials[i].sheen);
+    printf("  material.Pc     = %f\n", materials[i].clearcoat_thickness);
+    printf("  material.Pcr    = %f\n", materials[i].clearcoat_thickness);
+    printf("  material.aniso  = %f\n", materials[i].anisotropy);
+    printf("  material.anisor = %f\n", materials[i].anisotropy_rotation);
+    printf("  material.map_Ke = %s\n", materials[i].emissive_texname.c_str());
+    printf("  material.map_Pr = %s\n", materials[i].roughness_texname.c_str());
+    printf("  material.map_Pm = %s\n", materials[i].metallic_texname.c_str());
+    printf("  material.map_Ps = %s\n", materials[i].sheen_texname.c_str());
+    printf("  material.norm   = %s\n", materials[i].normal_texname.c_str());
+    std::map<std::string, std::string>::const_iterator it(
+        materials[i].unknown_parameter.begin());
+    std::map<std::string, std::string>::const_iterator itEnd(
+        materials[i].unknown_parameter.end());
+
+    for (; it != itEnd; it++) {
+      printf("  material.%s = %s\n", it->first.c_str(), it->second.c_str());
+    }
+    printf("\n");
+  }
+}
+
+void RenderStartScreen(GLFWwindow* window)
+{
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    float y = 0.2f;
+
+    TextRendering_PrintString(window, "POKEKART",
+        -0.16f, y, 2.0f);
+
+    TextRendering_PrintString(window, "Pressione ENTER para comecar",
+        -0.25f, y - 0.15f, 1.0f);
+
+    TextRendering_PrintString(window, "Controles:",
+        -0.12f, y - 0.30f, 1.0f);
+
+    TextRendering_PrintString(window, "W A S D  - mover",
+        -0.12f, y - 0.38f, 1.0f);
+
+    TextRendering_PrintString(window, "C - trocar de camera",
+        -0.12f, y - 0.46f, 1.0f);
+
+    TextRendering_PrintString(window, "ESC - sair",
+        -0.12f, y - 0.54f, 1.0f);
+
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+}
+
+
+
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
 // vim: set spell spelllang=pt_br :
