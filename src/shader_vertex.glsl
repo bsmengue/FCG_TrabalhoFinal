@@ -20,6 +20,7 @@ uniform int texture_id;
 #define CHARIZARD  3
 #define BULBASAUR  4
 
+
 // Outputs
 out vec4 position_world;
 out vec4 position_model;

@@ -6,6 +6,7 @@
 #define PLANE      2
 #define CHARIZARD  3
 #define BULBASAUR  4
+#define TREE 5
 
 in vec4 position_world;
 in vec4 normal;
@@ -28,6 +29,7 @@ uniform sampler2D TextureImage4;
 uniform sampler2D TextureImage5;
 uniform sampler2D TextureImage6;
 uniform sampler2D TextureImage7;
+uniform sampler2D TextureImage8;
 
 uniform vec4 bbox_min;
 uniform vec4 bbox_max;
@@ -83,6 +85,14 @@ else if (object_id == CAR)
     else if (object_id == BULBASAUR)
             {
         vec3 base = texture(TextureImage5, vec2(U,V)).rgb;
+        vec3 result = base * gouraud_color;   // <- luz já interpolada do VS
+        color = vec4(pow(result, vec3(1.0/2.2)), 1.0);
+        return;
+    }
+
+    else if (object_id == TREE)
+        {
+        vec3 base = texture(TextureImage8, vec2(U,V)).rgb;
         vec3 result = base * gouraud_color;   // <- luz já interpolada do VS
         color = vec4(pow(result, vec3(1.0/2.2)), 1.0);
         return;
