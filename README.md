@@ -1,6 +1,10 @@
 # FCG_TrabalhoFinal - PokeKart
 Repositório para o trabalho final de Fundamentos de Computação Gráfica
 
+
+<img width="807" height="647" alt="image" src="https://github.com/user-attachments/assets/0f11eab7-d602-4f7e-9845-70eae79b9baf" />
+<img width="811" height="663" alt="image" src="https://github.com/user-attachments/assets/adf6fd66-b9a9-4e71-83b7-5e8ce0047690" />
+
 # Como Executar:
 
 === Windows
