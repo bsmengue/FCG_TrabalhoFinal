@@ -1,11 +1,3 @@
-
-// Arquivos "headers" padrões de C podem ser incluídos em um
-// programa C++, sendo necessário somente adicionar o caractere
-// "c" antes de seu nome, e remover o sufixo ".h". Exemplo:
-//    #include <stdio.h> // Em C
-//  vira
-//    #include <cstdio> // Em C++
-//
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -40,6 +32,11 @@
 // Headers locais, definidos na pasta "include/"
 #include "utils.h"
 #include "matrices.h"
+
+#define MINIAUDIO_IMPLEMENTATION
+#include "miniaudio.h"
+
+ma_engine audioEngine;
 
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
@@ -111,7 +108,7 @@ std::vector<Checkpoint> checkpoints;
 bool raceFinished = false;
 bool canWin = false;
 std::string winner = "";
-float finishZ = 0.0f;  // linha de chegada
+float finishX = -20.0f;  // linha de chegada
 
 
 glm::vec3 g_CarPosition  = glm::vec3(-20.0f, -0.5f, -2.0f);
@@ -296,7 +293,7 @@ bool tecla_D = false;
 
 bool g_ShowStartScreen = true;
 bool car2FinishedLap = false;
-
+bool gameStarted = false;
 
 
 // Pontos de controle da curva Bezier
@@ -428,16 +425,8 @@ int main(int argc, char* argv[])
     glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
     FramebufferSizeCallback(window, 800, 600); // Forçamos a chamada do callback acima, para definir g_ScreenRatio.
 
-    // Imprimimos no terminal informações sobre a GPU do sistema
-    const GLubyte *vendor      = glGetString(GL_VENDOR);
-    const GLubyte *renderer    = glGetString(GL_RENDERER);
-    const GLubyte *glversion   = glGetString(GL_VERSION);
-    const GLubyte *glslversion = glGetString(GL_SHADING_LANGUAGE_VERSION);
-
-    printf("GPU: %s, %s, OpenGL %s, GLSL %s\n", vendor, renderer, glversion, glslversion);
-
     // Carregamos os shaders de vértices e de fragmentos que serão utilizados
-    // para renderização. Veja slides 180-200 do documento Aula_03_Rendering_Pipeline_Grafico.pdf.
+    // para renderização.
     //
     LoadShadersFromFiles();
 
@@ -564,13 +553,15 @@ cp2.active = false;
 checkpoints.push_back(cp2);
 
 Checkpoint cp3;
-cp3.position = glm::vec3(-20.0f, -1.0f, 0.0f);
+cp3.position = glm::vec3(20.0f, -1.00f, 0.0f);
 cp3.active = false;
 checkpoints.push_back(cp3);
 
-
-
-
+if (ma_engine_init(NULL, &audioEngine) != MA_SUCCESS) {
+    fprintf(stderr, "Erro ao iniciar audio engine! \"%s\".\n");
+} else {
+    fprintf(stderr, "Audio iniciado com sucesso!");
+}
 
     if ( argc > 1 )
     {
@@ -778,7 +769,7 @@ else
 
 
 // Avança o Carro 2 SOMENTE depois de pressionar ENTER
-if (!g_ShowStartScreen)
+if (gameStarted)
 {
     old_tCar2 = g_tCar2;
 
@@ -824,9 +815,6 @@ float car2_angle = atan2(car2_tan.x, car2_tan.z);
 // Atualiza as variáveis usadas na renderização
 g_Car2Position = car2_pos;
 g_Car2Angle    = car2_angle;
-
-
-
 
         glm::vec4 camera_position_c = g_CameraPosition;
         glm::vec4 camera_up_vector  = g_CameraUp;
@@ -896,6 +884,9 @@ g_Car2Angle    = car2_angle;
         #define CHARIZARD 3
         #define BULBASAUR 4
         #define TREE 5
+        #define CHECKPOINT 20
+        #define FINISH_LINE 21
+
 
 
         glDepthMask(GL_FALSE);
@@ -984,7 +975,6 @@ if (!g_TreeParts.empty())
             DrawVirtualObject(part_name.c_str());
     }
 }
-#define CHECKPOINT 20
 
 for (auto& cp : checkpoints)
 {
@@ -1002,10 +992,8 @@ for (auto& cp : checkpoints)
 }
 
 
-#define FINISH_LINE 21
-
 glm::mat4 finishModel =
-    Matrix_Translate(20.0f, -0.8f, 0.0f) *
+    Matrix_Translate(-20.0f, -0.95f, 0.0f) *
     Matrix_Scale(4.0f, 1.0f, 0.3f);
 
 glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(finishModel));
@@ -1020,10 +1008,11 @@ DrawVirtualObject("the_plane");
         if (!cp.active)
             canWin = false;
 
-if (!raceFinished && canWin && g_CarPosition.z >= finishZ)
+if (!raceFinished && canWin && g_CarPosition.x <= finishX)
 {
     raceFinished = true;
     winner = "Carro 1 venceu!";
+    ma_engine_play_sound(&audioEngine, "victory.wav", NULL);
 }
 
 // Vitória do Carro 2: completou 1 volta
@@ -1031,6 +1020,7 @@ if (!raceFinished && car2FinishedLap)
 {
     raceFinished = true;
     winner = "Carro 2 venceu!";
+    ma_engine_play_sound(&audioEngine, "lose.wav", NULL);
 }
 
         // Desenhamos o plano do chão
@@ -1079,17 +1069,17 @@ if (!raceFinished && car2FinishedLap)
         glUniform1i(g_texture_id_uniform, 1);
         DrawVirtualObject("the_plane");
 
-if (raceFinished)
+    if (raceFinished)
 {
-    TextRendering_PrintString(
-        window,
-        winner.c_str(),
-        -0.4f,
-        0.1f,
-        2.5f
-    );
+    TextRendering_PrintString(window, winner.c_str(), -0.4f, 0.1f, 2.5f);
 }
 
+    if (raceFinished)
+{
+    TextRendering_PrintString(window, winner.c_str(), -0.4f, 0.1f, 2.5f);
+
+    TextRendering_PrintString(window, "Pressione R para reiniciar",-0.3f, -0.1f, 1.5f);
+}
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -1855,42 +1845,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
-
-    if (key == GLFW_KEY_X && action == GLFW_PRESS)
-    {
-        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
-    {
-        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-    {
-        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-    {
-        g_AngleX = 0.0f;
-        g_AngleY = 0.0f;
-        g_AngleZ = 0.0f;
-        g_ForearmAngleX = 0.0f;
-        g_ForearmAngleZ = 0.0f;
-        g_TorsoPositionX = 0.0f;
-        g_TorsoPositionY = 0.0f;
-    }
-
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
     {
@@ -1903,14 +1857,9 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         g_UsePerspectiveProjection = false;
     }
 
-    // Se o usuário apertar a tecla H, fazemos um "toggle" do texto informativo mostrado na tela.
-    if (key == GLFW_KEY_H && action == GLFW_PRESS)
-    {
-        g_ShowInfoText = !g_ShowInfoText;
-    }
 
-    // Se o usuário apertar a tecla R, recarregamos os shaders dos arquivos "shader_fragment.glsl" e "shader_vertex.glsl".
-    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+    // Se o usuário apertar a tecla H, recarregamos os shaders dos arquivos "shader_fragment.glsl" e "shader_vertex.glsl".
+    if (key == GLFW_KEY_H && action == GLFW_PRESS)
     {
         LoadShadersFromFiles();
         fprintf(stdout,"Shaders recarregados!\n");
@@ -2019,8 +1968,31 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (g_ShowStartScreen)
     {
         g_ShowStartScreen = false;
+        gameStarted = true;
         return;
     }
+}
+    //Pressiona a tecla R para reiniciar o jogo no final
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+{
+    raceFinished = false;
+    winner = "";
+
+    // reset do carro 1
+    g_CarPosition = glm::vec3(-23.0f, -0.5f, -2.0f);
+    g_CarAngle = 3.141592f;
+
+    // reset do carro 2
+    g_tCar2 = 0.0f;
+    old_tCar2 = 0.0f;
+    car2FinishedLap = false;
+
+    // reset dos checkpoints
+    for (auto &cp : checkpoints)
+        cp.active = false;
+
+    // reset da tela inicial
+     g_ShowStartScreen = true;
 }
 
 }
