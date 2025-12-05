@@ -146,10 +146,11 @@ Tecla C - usada para alternar entre as câmeras livre e lookat.
 Teclas LEFT, UP, DOWN e RIGHT - usadas para a movimentação da camera livre.
 Tecla ENTER - iniciar o jogo
 Mouse - usado para controle do ângulo da camera em qualquer um dos casos.
+Tecla R - reinicia o jogo
 
 # Contribuições
 - Bruno: a partir do Laboratório 5 completo, fiz subi os modelos dos Pokemon e do carro e texturizei eles, além de colocar texturas nos planos que compõe a estrada e o chão e criar uma esfera externa para simular um céu. Fiz a implementações da cameras câmeras livre e look-at. Implementei a curva de bezier no carro competidor e inclui os modelos de iluminação e interpolação desejados.
-- Luana:
+- Luana: implementei a movimentação do carro do jogador, incluindo controle suave baseado no tempo, e desenvolvi todo o sistema de colisões do jogo. Também criei a lógica completa da corrida, com checkpoints, linha de chegada e verificação de vitória ou derrota. Além disso, implementei os efeitos sonoros, como som de vitória e derrota, e participei do posicionamento e ajuste visual dos elementos da pista.
 
 # Uso de IA Generativa para código
 O uso se deu para facilitar o debug, além de encontrar soluções para problemas que consumiram muito tempo, como a rendenização de modelos com diversas partes. Também foi de grande utilidade para aprender sobre maiores detalhes das funções de OpenGL que não haviam sido completamente explorados por nós nos laboratórios, além de trazer novas funções que permitissem realizar tarefas mais complexas.
